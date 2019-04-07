@@ -9,8 +9,33 @@ import re
 APK_DIRECTORY_PATH = "./apkFiles"
 DECOMPRESSED_DIRECTORY_PATH = "./decompressedApks"
 BAKSMALI_PATH = "./supportFiles/baksmali-2.2.6.jar"
+FULL_PERMISSIONS_LIST_FILE_PATH = "./fullPermissionsList.txt"
+FULL_APIS_FILE_PATH = "./apiMethodsList.txt"
 
 #######################################################################
+
+# This method stores in a data structure all the permissions stored in the fullPermissionsList.txt file
+# NOTE: from "READ_CALENDAR" going on, they are dangerous permissions
+def getFullPermissionsList(fullPermissionsListPath):
+    fullPermissionsList = []
+    with open(fullPermissionsListPath, "r") as inputFile:
+        line = inputFile.readline()
+        while(line):
+            fullPermissionsList.append(line)
+            line = inputFile.readline()
+    return fullPermissionsList
+
+def getFullApisList(fullApisListPath):
+    fullAPIsList = []
+    with open(fullApisListPath, "r") as inputFile:
+        line = inputFile.readline()
+        while(line):
+            # Removing arguments and their parenthesis
+            cutIndex = line.find('(')
+            line = line[0:cutIndex]
+            fullAPIsList.append(line)
+            line = inputFile.readline()
+    return fullAPIsList
 
 # This method uses BAKSMALI to parse the classes.dex file
 def getAllAppMethods(decompressedAppPath):
@@ -146,8 +171,15 @@ def getAllAppStrings(decompressedAppPath):
         for string in stringsList:
             outputFile.write(string+'\n')
 
+
+
 #######################################################################
 
+# Store locally in a data structure the list of all possible Android Permissions
+fullPermissionsList = getFullPermissionsList(FULL_PERMISSIONS_LIST_FILE_PATH)
+
+# Store locally in a data structure the list of all APIs methods
+fullAPIsList = getFullApisList(FULL_APIS_FILE_PATH)
 
 # Parse through all APK files
 files = [i for i in os.listdir(APK_DIRECTORY_PATH) if i.endswith("apk")]
@@ -171,6 +203,43 @@ for file in files:
 
     # Building strings.txt for this app (list of all strings hardcoded in the app)
     getAllAppStrings(relativeDecompressedPath)
+
+
+    ###############################################################################
+    # Now that the app has been fully parsed, we can proceed to build its features vector
+    ###############################################################################
+
+    # Building the APIs method binary array
+    methodsArray = [0 for i in range(0, len(fullAPIsList))]
+    methodsFile = relativeDecompressedPath + "/" + "methods.txt"
+    with open(methodsFile, "r") as inputFile:
+        method = inputFile.readline()
+        while(method):
+            # Find if this used method is also in the Android APIs
+            for index in range(0, len(fullAPIsList)):
+                if(method == fullAPIsList[index]):
+                    methodsArray[index] = 1
+            # Read next method
+            method = inputFile.readline()
+
+    # Building the Permissions binary array
+    permissionsArray = [0 for i in range(0, len(fullPermissionsList))]
+    permissionsFile = relativeDecompressedPath + "/" + "permissions.txt"
+    with open(permissionsFile, "r") as inputFile:
+        permission = inputFile.readline()
+        while(permission):
+            # Get only the last part of the permission's name
+            permission = permission.split('.')[-1]
+            # Find if this permission is also present in the full permissions list
+            for index in range(0, len(fullPermissionsList)):
+                if(permission == fullPermissionsList[index]):
+                    permissionsArray[index] = 1
+            # Read next permissions
+            permission = inputFile.readline()
+    print(permissionsArray)
+
+    # Build the word2vec array for the set of strings of this app
+
 
 
 
