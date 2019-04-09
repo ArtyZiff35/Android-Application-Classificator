@@ -2,6 +2,7 @@ import os
 import subprocess
 import zipfile
 import re
+from gensim.models import KeyedVectors
 
 
 # First of all, run script "apiListBuilder.py" in order to build file "apiMethodsList.txt" containing all Android APIs
@@ -11,6 +12,7 @@ DECOMPRESSED_DIRECTORY_PATH = "./decompressedApks"
 BAKSMALI_PATH = "./supportFiles/baksmali-2.2.6.jar"
 FULL_PERMISSIONS_LIST_FILE_PATH = "./fullPermissionsList.txt"
 FULL_APIS_FILE_PATH = "./apiMethodsList.txt"
+WORD2VEC_MODEL_PATH = "./word2vecModels/GoogleNews-vectors-negative300.bin"
 
 #######################################################################
 
@@ -175,11 +177,15 @@ def getAllAppStrings(decompressedAppPath):
 
 #######################################################################
 
-# Store locally in a data structure the list of all possible Android Permissions
-fullPermissionsList = getFullPermissionsList(FULL_PERMISSIONS_LIST_FILE_PATH)
-
+# Instantiating the word2Vec model
+print('Loading word2vec model...')
+word2vecModel = KeyedVectors.load_word2vec_format(WORD2VEC_MODEL_PATH, binary=True)
 # Store locally in a data structure the list of all APIs methods
 fullAPIsList = getFullApisList(FULL_APIS_FILE_PATH)
+# Store locally in a data structure the list of all possible Android Permissions
+fullPermissionsList = getFullPermissionsList(FULL_PERMISSIONS_LIST_FILE_PATH)
+# Declaring the training array of application data
+trainingList = []
 
 # Parse through all APK files
 files = [i for i in os.listdir(APK_DIRECTORY_PATH) if i.endswith("apk")]
@@ -239,6 +245,47 @@ for file in files:
     print(permissionsArray)
 
     # Build the word2vec array for the set of strings of this app
+    stringsFile = relativeDecompressedPath + "/" + "strings.txt"
+    with open(stringsFile, "r") as inputFile:
+        line = inputFile.readline()
+        lineCounter = 0
+        totMat = None
+        while(line):
+            # Remove all non alphabetical chars
+            regex = re.compile('[^a-zA-Z]')
+            line = regex.sub('', line)
+            # Add up all the vectors for the same line
+            wordsInLine = line.split()
+            # Filter out all words that are not present in the model
+            wordsInLine = [k for k in wordsInLine if k in word2vecModel.vocab]
+            print(wordsInLine)
+            if(len(wordsInLine)>0):
+                lineCounter = lineCounter + 1
+                currentMat = None
+                for word in wordsInLine:
+                    if currentMat is None:
+                        currentMat = word2vecModel[word]
+                    else:
+                        currentMat = currentMat + word2vecModel[word]
+                # Then average among all the lines
+                if totMat is None:
+                    totMat = currentMat
+                else:
+                    totMat = totMat + currentMat
+            line = inputFile.readline()
+        # Finalize the count of the average for all the lines by diving by the line counter
+        if lineCounter > 0:
+            totMat = totMat/lineCounter
+        else:
+            totMat = [0.0] * 300
+        topn = 10
+        print(totMat.shape)
+        most_similar_words = word2vecModel.most_similar([totMat], [], topn)
+        print(most_similar_words)
+
+    # Eventually create the appObject with all the due arrays
+
+
 
 
 
