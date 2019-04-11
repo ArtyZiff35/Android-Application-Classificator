@@ -29,24 +29,24 @@ with open(CLASSES_FILE_PATH, 'r') as fileInput:
             className = className.replace(".class","")
 
             print('Parsing class ' + className)
-
+            apiListOutput.write(className + '\n')
             # List all methods for this class with Javap
-            with open(TEMP_METHODS_FILE_PATH, 'w') as tmpFile:
-                subprocess.call(['C:\Program Files\Java\jdk1.8.0_181"\"bin\javap.exe','-classpath', ANDROID_JAR_PATH, className], shell=True, stdout=tmpFile)
-            with open(TEMP_METHODS_FILE_PATH, 'r') as tmpFile:
-                methodLine = tmpFile.readline()
-                while methodLine:
-                    # Retrieve only the name of the method, removing return type, visibility, etc...
-                    methodLine = methodLine.strip()
-                    foundMethod = re.findall(r'\s[A-Za-z]+\(.*\)', methodLine)
-                    if len(foundMethod)>0:
-                        # Compose the complete name of the method by appending its name to the class name
-                        foundMethod[0] = foundMethod[0].strip()
-                        finalMethodName = className + '.' + foundMethod[0]
-                        # Write it to the final file
-                        apiListOutput.write(finalMethodName+'\n')
-                    # Read next method name
-                    methodLine = tmpFile.readline()
+            # with open(TEMP_METHODS_FILE_PATH, 'w') as tmpFile:
+            #     subprocess.call(['C:\Program Files\Java\jdk1.8.0_181"\"bin\javap.exe','-classpath', ANDROID_JAR_PATH, className], shell=True, stdout=tmpFile)
+            # with open(TEMP_METHODS_FILE_PATH, 'r') as tmpFile:
+            #     methodLine = tmpFile.readline()
+            #     while methodLine:
+            #         # Retrieve only the name of the method, removing return type, visibility, etc...
+            #         methodLine = methodLine.strip()
+            #         foundMethod = re.findall(r'\s[A-Za-z]+\(.*\)', methodLine)
+            #         if len(foundMethod)>0:
+            #             # Compose the complete name of the method by appending its name to the class name
+            #             foundMethod[0] = foundMethod[0].strip()
+            #             finalMethodName = className + '.' + foundMethod[0]
+            #             # Write it to the final file
+            #             apiListOutput.write(finalMethodName+'\n')
+            #         # Read next method name
+            #         methodLine = tmpFile.readline()
 
         # Read next class name
         line = fileInput.readline()
