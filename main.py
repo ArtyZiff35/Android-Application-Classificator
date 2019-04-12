@@ -211,111 +211,115 @@ for category in categories:
     for file in files:
         print("Working on (" + category + " --> " + str(fileCounter) + "/" + str(len(files)) + ") " + str(file) + "...")
         fileCounter = fileCounter + 1
-        # First, save some useful strings about this app
-        appName = os.path.splitext(file)[0]                                     # Base name of the app
-        relativeApkPath = APK_DIRECTORY_PATH + "/" + file                       # Relative path for the Apk
-        relativeDecompressedPath = DECOMPRESSED_DIRECTORY_PATH + "/" + appName  # Relative path for the decompressed Apk
+        try:
+            # First, save some useful strings about this app
+            appName = os.path.splitext(file)[0]  # Base name of the app
+            relativeApkPath = APK_DIRECTORY_PATH + "/" + file  # Relative path for the Apk
+            relativeDecompressedPath = DECOMPRESSED_DIRECTORY_PATH + "/" + appName  # Relative path for the decompressed Apk
 
-        # Decompress the Apk into its specific folder
-        with zipfile.ZipFile(relativeApkPath, "r") as zip_ref:
-            zip_ref.extractall(relativeDecompressedPath)
+            # Decompress the Apk into its specific folder
+            with zipfile.ZipFile(relativeApkPath, "r") as zip_ref:
+                zip_ref.extractall(relativeDecompressedPath)
 
-        # Building methods.txt for this app (list of all used methods by the app)
-        getAllAppMethods(relativeDecompressedPath)
+            # Building methods.txt for this app (list of all used methods by the app)
+            getAllAppMethods(relativeDecompressedPath)
 
-        # Building permissions.txt for this app (list of all permissions required by this app)
-        getAllAppPermissions(relativeDecompressedPath, relativeApkPath)
+            # Building permissions.txt for this app (list of all permissions required by this app)
+            getAllAppPermissions(relativeDecompressedPath, relativeApkPath)
 
-        # Building strings.txt for this app (list of all strings hardcoded in the app)
-        getAllAppStrings(relativeDecompressedPath)
+            # Building strings.txt for this app (list of all strings hardcoded in the app)
+            getAllAppStrings(relativeDecompressedPath)
 
+            ###############################################################################
+            # Now that the app has been fully parsed, we can proceed to build its features vector
+            ###############################################################################
 
-        ###############################################################################
-        # Now that the app has been fully parsed, we can proceed to build its features vector
-        ###############################################################################
-
-        # Building the APIs method binary array
-        methodsArray = [0 for i in range(0, len(fullAPIsDictionary))]
-        methodsFile = relativeDecompressedPath + "/" + "methods.txt"
-        with open(methodsFile, "r", encoding="utf8", errors='ignore') as inputFile:
-            method = inputFile.readline()
-            while(method):
-                # Convert specific method to just its class (to match API class list)
-                methodSplit = method.split('.')
-                method = ""
-                for i in range(0, len(methodSplit)-1):
-                    method = method + methodSplit[i] + "."
-                method = method[:-1]
-                method = method.strip()
-                # Find if this used method is also in the Android APIs
-                if method in fullAPIsDictionary:
-                    methodsArray[fullAPIsDictionary[method]] = 1
-                # for index in range(0, len(fullAPIsDictionary)):
-                #     if method == fullAPIsDictionary[index] :
-                #         methodsArray[index] = 1
-                # Read next method
+            # Building the APIs method binary array
+            methodsArray = [0 for i in range(0, len(fullAPIsDictionary))]
+            methodsFile = relativeDecompressedPath + "/" + "methods.txt"
+            with open(methodsFile, "r", encoding="utf8", errors='ignore') as inputFile:
                 method = inputFile.readline()
+                while (method):
+                    # Convert specific method to just its class (to match API class list)
+                    methodSplit = method.split('.')
+                    method = ""
+                    for i in range(0, len(methodSplit) - 1):
+                        method = method + methodSplit[i] + "."
+                    method = method[:-1]
+                    method = method.strip()
+                    # Find if this used method is also in the Android APIs
+                    if method in fullAPIsDictionary:
+                        methodsArray[fullAPIsDictionary[method]] = 1
+                    # for index in range(0, len(fullAPIsDictionary)):
+                    #     if method == fullAPIsDictionary[index] :
+                    #         methodsArray[index] = 1
+                    # Read next method
+                    method = inputFile.readline()
 
-        # Building the Permissions binary array
-        permissionsArray = [0 for i in range(0, len(fullPermissionsList))]
-        permissionsFile = relativeDecompressedPath + "/" + "permissions.txt"
-        with open(permissionsFile, "r", encoding="utf8", errors='ignore') as inputFile:
-            permission = inputFile.readline()
-            while(permission):
-                # Get only the last part of the permission's name
-                permission = permission.split('.')[-1]
-                # Find if this permission is also present in the full permissions list
-                for index in range(0, len(fullPermissionsList)):
-                    if permission == fullPermissionsList[index] :
-                        permissionsArray[index] = 1
-                # Read next permissions
+            # Building the Permissions binary array
+            permissionsArray = [0 for i in range(0, len(fullPermissionsList))]
+            permissionsFile = relativeDecompressedPath + "/" + "permissions.txt"
+            with open(permissionsFile, "r", encoding="utf8", errors='ignore') as inputFile:
                 permission = inputFile.readline()
+                while (permission):
+                    # Get only the last part of the permission's name
+                    permission = permission.split('.')[-1]
+                    # Find if this permission is also present in the full permissions list
+                    for index in range(0, len(fullPermissionsList)):
+                        if permission == fullPermissionsList[index]:
+                            permissionsArray[index] = 1
+                    # Read next permissions
+                    permission = inputFile.readline()
 
-        # Build the word2vec array for the set of strings of this app
-        stringsFile = relativeDecompressedPath + "/" + "strings.txt"
-        with open(stringsFile, "r", encoding="utf8", errors='ignore') as inputFile:
-            line = inputFile.readline()
-            lineCounter = 0
-            totMat = None
-            while(line):
-                # Remove all non alphabetical chars
-                regex = re.compile('[^a-zA-Z]')
-                line = regex.sub('', line)
-                # Add up all the vectors for the same line
-                wordsInLine = line.split()
-                # Filter out all words that are not present in the model
-                wordsInLine = [k for k in wordsInLine if k in word2vecModel.vocab]
-                if(len(wordsInLine)>0):
-                    lineCounter = lineCounter + 1
-                    currentMat = None
-                    for word in wordsInLine:
-                        if currentMat is None:
-                            currentMat = word2vecModel[word]
-                        else:
-                            currentMat = currentMat + word2vecModel[word]
-                    # Then average among all the lines
-                    if totMat is None:
-                        totMat = currentMat
-                    else:
-                        totMat = totMat + currentMat
+            # Build the word2vec array for the set of strings of this app
+            stringsFile = relativeDecompressedPath + "/" + "strings.txt"
+            with open(stringsFile, "r", encoding="utf8", errors='ignore') as inputFile:
                 line = inputFile.readline()
-            # Finalize the count of the average for all the lines by diving by the line counter
-            if lineCounter > 0:
-                totMat = totMat/lineCounter
-            else:
-                totMat = word2vecModel['word']
+                lineCounter = 0
+                totMat = None
+                while (line):
+                    # Remove all non alphabetical chars
+                    regex = re.compile('[^a-zA-Z]')
+                    line = regex.sub('', line)
+                    # Add up all the vectors for the same line
+                    wordsInLine = line.split()
+                    # Filter out all words that are not present in the model
+                    wordsInLine = [k for k in wordsInLine if k in word2vecModel.vocab]
+                    if (len(wordsInLine) > 0):
+                        lineCounter = lineCounter + 1
+                        currentMat = None
+                        for word in wordsInLine:
+                            if currentMat is None:
+                                currentMat = word2vecModel[word]
+                            else:
+                                currentMat = currentMat + word2vecModel[word]
+                        # Then average among all the lines
+                        if totMat is None:
+                            totMat = currentMat
+                        else:
+                            totMat = totMat + currentMat
+                    line = inputFile.readline()
+                # Finalize the count of the average for all the lines by diving by the line counter
+                if lineCounter > 0:
+                    totMat = totMat / lineCounter
+                else:
+                    totMat = word2vecModel[category]
 
-        # Stats
-        print("Methods matches: " + str(np.count_nonzero(methodsArray)))
-        print("Permissions matches: " + str(np.count_nonzero(permissionsArray)))
-        print("\n")
+            # Stats
+            print("Methods matches: " + str(np.count_nonzero(methodsArray)))
+            print("Permissions matches: " + str(np.count_nonzero(permissionsArray)))
+            print("\n")
 
-        # Eventually create the appObject with all the due arrays
-        appData = appObject(methodsArray, permissionsArray, totMat, category)
-        trainingList.append(appData)
+            # Eventually create the appObject with all the due arrays
+            appData = appObject(methodsArray, permissionsArray, totMat, category)
+            trainingList.append(appData)
+            print("OK: Data was successfully appended with size: " + str(len(trainingList)))
 
-        # Now that we have finished with this app, we might as well proceed to delete the decompressedAPK folder for this APK
-        shutil.rmtree(relativeDecompressedPath)
+            # Now that we have finished with this app, we might as well proceed to delete the decompressedAPK folder for this APK
+            deletionPath = os.path.abspath(relativeDecompressedPath)
+            shutil.rmtree(deletionPath)
+        except Exception as e:
+            print("!!! An error occurred during operations: " + str(e))
 
     # Now dump the list obtained for the last parsed category
     print("\n-------------------------------\nNow dumping list\n-------------------------------")

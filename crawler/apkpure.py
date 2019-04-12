@@ -4,17 +4,17 @@ from crawler import *
 class apkpure_crawler(two_way_crawler):
     def __init__(self):
         super().__init__('https://apkpure.com/game',
-                         'https://apkpure.com/weather',     # Change this
+                         'https://apkpure.com/communication',     # Change this
                          'https://apkpure.com/game?page=2',
-                         'https://apkpure.com/weather?page=2')  # And this
-        self.folder_name = 'apkpure/'
+                         'https://apkpure.com/communication?page=2')  # And this
+        self.folder_name = 'D:\\apkFiles\\communication\\'
         self.baseUrl = 'https://apkpure.com'
         if not os.path.exists(self.folder_name):
             os.mkdir(self.folder_name)
 
     def extraction_routine(self, string):
         apps = re.findall(r'.*href="(/.*?/download\?from=category)".*', string)
-        print("Found the following apps: " + str(apps))
+        print("Found the following apps: " + str(len(apps)))
         for app in apps:
             try:
                 apk_name = app.split('download')[0].split('/')[1].strip('/') + '.apk'

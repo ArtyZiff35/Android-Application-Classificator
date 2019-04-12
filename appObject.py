@@ -12,3 +12,20 @@ class appObject:
         # This is the category of this app
         self.category = category
 
+    def getMehtodsArray(self):
+        return self.binaryMethodsArray
+
+    def getNumOfMethods(self):
+        return len(self.binaryMethodsArray)
+
+    def getPermissionsArray(self):
+        return self.binaryPermissionsArray
+
+    def getNumOfPermissions(self):
+        return len(self.binaryPermissionsArray)
+
+    def getStringsArray(self):
+        return self.stringsArray
+
+    def getCategory(self):
+        return self.category
