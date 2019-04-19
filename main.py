@@ -19,6 +19,7 @@ FULL_PERMISSIONS_LIST_FILE_PATH = "./fullPermissionsList.txt"
 FULL_APIS_FILE_PATH = "./apiMethodsList.txt"
 WORD2VEC_MODEL_PATH = "./word2vecModels/GoogleNews-vectors-negative300.bin"
 DUMP_DIRECTORY_PATH = "./dumpFiles"
+MAX_DELETION_BUFFER = 3
 
 #######################################################################
 
@@ -198,6 +199,7 @@ trainingList = []
 
 # Parse through all APK files by category
 categories = [i for i in os.listdir(MAIN_APK_DIRECTORY_PATH)]
+deleteCounter = 0
 # For each category
 for category in categories:
     print("\n\n\nParsing category: " + category)
@@ -308,16 +310,20 @@ for category in categories:
             # Stats
             print("Methods matches: " + str(np.count_nonzero(methodsArray)))
             print("Permissions matches: " + str(np.count_nonzero(permissionsArray)))
-            print("\n")
 
             # Eventually create the appObject with all the due arrays
             appData = appObject(methodsArray, permissionsArray, totMat, category)
             trainingList.append(appData)
             print("OK: Data was successfully appended with size: " + str(len(trainingList)))
+            print("\n")
 
             # Now that we have finished with this app, we might as well proceed to delete the decompressedAPK folder for this APK
-            deletionPath = os.path.abspath(relativeDecompressedPath)
-            shutil.rmtree(deletionPath)
+            deleteCounter = deleteCounter + 1
+            if deleteCounter == MAX_DELETION_BUFFER:
+                deleteCounter = 0
+                print("[[[Deleting decompressed files...]]]")
+                deletionPath = os.path.abspath(DECOMPRESSED_DIRECTORY_PATH)
+                subprocess.call(["rd", '/s', '/q', '-o', deletionPath], shell=True)
         except Exception as e:
             print("!!! An error occurred during operations: " + str(e))
 

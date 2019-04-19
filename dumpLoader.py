@@ -10,6 +10,7 @@ from keras.models import load_model
 from tensorflow.python.client import device_lib
 from keras import backend as K
 import random
+from matplotlib import pyplot as plt
 
 
 # Constants
@@ -19,19 +20,19 @@ DUMP_DIRECTORY_PATH = "./dumpFiles"
 def setupNNmodel(inputShape, outputShape):
     model = Sequential()
     # Input - Layer
-    model.add(Dense(50, activation="relu", input_shape=(inputShape,)))
+    model.add(Dense(1000, activation="relu", input_shape=(inputShape,)))
     # Hidden - Layers
-    model.add(Dropout(0.3, noise_shape=None, seed=None))
-    model.add(Dense(50, activation="relu"))
     model.add(Dropout(0.2, noise_shape=None, seed=None))
+    model.add(Dense(500, activation="relu"))
+    model.add(Dropout(0.1, noise_shape=None, seed=None))
     model.add(Dense(50, activation="relu"))
     # Output- Layer
-    model.add(Dense(outputShape, activation="sigmoid"))
+    model.add(Dense(outputShape, activation="softmax"))        # Was using sigmoid, but it is only between 0 and 1
     model.summary()
 
     model.compile(
-        optimizer="adam",
-        loss="binary_crossentropy",
+        loss='mean_squared_error',
+        optimizer='Adam',
         metrics=["accuracy"]
     )
 
@@ -50,7 +51,7 @@ classProbability = {}       # ClassName : ClassProbability
 classNameToIndex = {}       # ClassName : ClassIndex
 
 totAppCounter = 0           # Total number of apps
-validationPercentage = 0.25  # Percentage of data to be used as validation
+validationPercentage = 0.10  # Percentage of data to be used as validation
 
 
 
@@ -62,7 +63,7 @@ for file in files:
     filePath = DUMP_DIRECTORY_PATH + "/" + file
     with open (filePath, 'rb') as fp:
         itemlist = pickle.load(fp)
-        print("Loaded " + category)
+        print("Loaded " + category + " with " + str(len(itemlist)) + " elements")
         # Update data structures
         classNameToIndex[category] = numClasses
         numClasses = numClasses + 1
@@ -72,6 +73,7 @@ for file in files:
         numApis = itemlist[-1].getNumOfMethods()
         numPermissions = itemlist[-1].getNumOfPermissions()
         numStrings = len(itemlist[-1].getStringsArray())
+
 
 # Now that we have everything that we need from our files, we proceed...
 # Calculating the class probability
@@ -105,29 +107,41 @@ while validationCounter > 0:
         # Adding to the validation set
         val_X.append(tmpArray)
         # Adding the corresponding numeric label
-        val_Y.append(classNameToIndex[category])
+        label = [0 for i in range(0, numClasses)]
+        label[classNameToIndex[app.getCategory()]] = 1
+        val_Y.append(label)
         # Updating counter
         validationCounter = validationCounter - 1
         if validationCounter == 0:
             break
 
-print(str(len(val_X)))
+print("Validation size: " + str(len(val_X)))
 
 
 # Building the complete features training array
 X = []
 Y = []
+tmpArray = []
 for category in classListDictionary:
     for app in classListDictionary[category]:
+        # Putting apps from all categories together so that we can shuffle them
+        tmpArray.append(app)
+
+# Shuffle the array
+random.shuffle(tmpArray)
+
+for app in tmpArray:
         # Merging the 3 arrays in just one
-        tmpArray = []
-        tmpArray.extend(app.getMehtodsArray())
-        tmpArray.extend(app.getPermissionsArray())
-        tmpArray.extend(app.getStringsArray())
+        featuresArr = []
+        featuresArr.extend(app.getMehtodsArray())
+        featuresArr.extend(app.getPermissionsArray())
+        featuresArr.extend(app.getStringsArray())
         # Adding to the training set
-        X.append(tmpArray)
+        X.append(featuresArr)
         # Adding the corresponding numeric label
-        Y.append(classNameToIndex[category])
+        label = [0 for i in range(0,numClasses)]
+        label[classNameToIndex[app.getCategory()]] = 1
+        Y.append(label)
 
 # Set up NN model
 finalArrayLen = len(X[-1])
@@ -143,7 +157,7 @@ val_Y = np.array(val_Y)
 results = NNmodel.fit(
                         X, Y,
                         verbose=1,
-                        epochs=15,
+                        epochs=100,
                         batch_size=32,
                         shuffle=True,
                         validation_data = (val_X, val_Y)
@@ -152,3 +166,20 @@ results = NNmodel.fit(
 # Printing the validation results
 print("\n\nValidation accuracy:\n" + str(np.mean(results.history["val_acc"])))
 
+# Plot metrics
+#  "Accuracy"
+plt.plot(results.history['acc'])
+plt.plot(results.history['val_acc'])
+plt.title('Model accuracy')
+plt.ylabel('Accuracy')
+plt.xlabel('Epoch')
+plt.legend(['Training set', 'Validation set'], loc='upper left')
+plt.show()
+# "Loss"
+plt.plot(results.history['loss'])
+plt.plot(results.history['val_loss'])
+plt.title('Model loss')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(['Training set', 'Validation set'], loc='upper left')
+plt.show()
