@@ -4,10 +4,10 @@ from crawler import *
 class apkpure_crawler(two_way_crawler):
     def __init__(self):
         super().__init__('https://apkpure.com/game',
-                         'https://apkpure.com/communication',     # Change this
+                         'https://apkpure.com/food_and_drink',     # Change this
                          'https://apkpure.com/game?page=2',
-                         'https://apkpure.com/communication?page=2')  # And this
-        self.folder_name = 'D:\\apkFiles\\communication\\'
+                         'https://apkpure.com/food_and_drink?page=2')  # And this
+        self.folder_name = 'D:\\apkFiles\\food_and_drink\\'
         self.baseUrl = 'https://apkpure.com'
         if not os.path.exists(self.folder_name):
             os.mkdir(self.folder_name)

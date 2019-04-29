@@ -9,6 +9,7 @@ from gensim.models import KeyedVectors
 from appObject import appObject
 
 
+
 # First of all, run script "apiListBuilder.py" in order to build file "apiMethodsList.txt" containing all Android APIs
 
 #MAIN_APK_DIRECTORY_PATH = "./apkFiles"
