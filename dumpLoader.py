@@ -142,7 +142,7 @@ for app in tmpArray:
         # Adding to the training set
         X.append(featuresArr)
         # Adding the corresponding numeric label
-        label = [0 for i in range(0,numClasses)]
+        label = [0 for i in range(0,numClasses)]            # Transforming the label into the binary '00001000' format starting from decimal
         label[classNameToIndex[app.getCategory()]] = 1
         Y.append(label)
 
