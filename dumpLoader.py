@@ -34,7 +34,7 @@ def setupNNmodel(inputShape, outputShape):
     model.summary()
 
     model.compile(
-        loss='mean_squared_error',
+        loss='binary_crossentropy',
         optimizer=optimizers.SGD(lr=0.01, momentum=0.9),
         metrics=["accuracy",keras_metrics.precision(), keras_metrics.recall()]
     )
