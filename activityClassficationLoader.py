@@ -15,6 +15,12 @@ from keras.models import Model
 import tensorflow as tf
 import keras_metrics
 from matplotlib import pyplot as plt
+from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+
 
 
 
@@ -31,13 +37,20 @@ def setupImageConvModel(inputShape):
 
     model = Sequential()
 
+    poolingLayer = MaxPooling2D(pool_size=(2, 2),
+                                strides=(2, 2),
+                                input_shape=inputShape)
+    model.add(poolingLayer)
+
+    poolingLayer = MaxPooling2D(pool_size=(2, 2),
+                                strides=(2, 2))
+    model.add(poolingLayer)
 
     # Convolution Layer 1
     convLayer = Conv2D(filters=12,
                        kernel_size=(3, 3),
                        strides=(1, 1),
-                       activation='relu',
-                       input_shape=inputShape)
+                       activation='relu')
     model.add(convLayer)
     # Pooling Layer 1
     poolingLayer = MaxPooling2D(pool_size=(2, 2),
@@ -60,16 +73,6 @@ def setupImageConvModel(inputShape):
                        activation='elu')
     model.add(convLayer)
     # Pooling Layer 3
-    poolingLayer = MaxPooling2D(pool_size=(2, 2),
-                                strides=(2, 2))
-    model.add(poolingLayer)
-
-    # Convolution Layer 4
-    convLayer = Conv2D(filters=96,
-                       kernel_size=(3, 3),
-                       activation='elu')
-    model.add(convLayer)
-    # Pooling Layer 4
     poolingLayer = MaxPooling2D(pool_size=(2, 2),
                                 strides=(2, 2))
     model.add(poolingLayer)
@@ -119,18 +122,115 @@ def setupDataOnlyModel(metadataInputShape, outputShape):
     # model.add(Dropout(0.20, noise_shape=None, seed=None))
     model.add(Dense(100, activation="relu"))
     # model.add(Dropout(0.1, noise_shape=None, seed=None))
-    model.add(Dense(50, activation="relu"))
+    # model.add(Dense(100, activation="relu"))
+    # model.add(Dense(50, activation="relu"))
     # Output- Layer
     model.add(Dense(outputShape, activation="softmax"))  # Was using sigmoid, but it is only between 0 and 1
     model.summary()
 
     model.compile(
-        loss='binary_crossentropy',
+        loss='kullback_leibler_divergence',
         optimizer=optimizers.SGD(lr=0.01, momentum=0.9),
         metrics=["accuracy", keras_metrics.precision(), keras_metrics.recall()]
     )
 
     return model
+
+
+def singleTraining(imageShape, metadataShape, numLabels):
+
+    # Instantiating model
+    # model = setupFinalModel(imageShape, metadataShape, numLabels)
+    model = setupDataOnlyModel(metadataShape, numLabels)
+
+    # Training the model
+    # results = model.fit(
+    #     x=[metaInputList, imageInputList],
+    #     y=labelInputList,
+    #     verbose=1,
+    #     epochs=200,
+    #     batch_size=6,
+    #     shuffle=True,
+    #     validation_split=validationPercentage
+    # )
+
+    results = model.fit(
+                            x = metaInputList,
+                            y = labelInputList,
+                            verbose=1,
+                            epochs=200,
+                            batch_size=12,
+                            shuffle=True,
+                            validation_split = validationPercentage
+                            )
+
+    # Plot metrics
+    #  "Accuracy"
+    plt.plot(results.history['acc'])
+    plt.plot(results.history['val_acc'])
+    plt.title('Model accuracy')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend(['Training set', 'Validation set'], loc='upper left')
+    plt.show()
+    # "Loss"
+    plt.plot(results.history['loss'])
+    plt.plot(results.history['val_loss'])
+    plt.title('Model loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Training set', 'Validation set'], loc='upper left')
+    plt.show()
+
+    # Printing the validation results
+    print("\n\nAverage Validation accuracy: " + str(np.mean(results.history["val_acc"])))
+    # Finding best validation accuracy
+    print("Best validation accuracy: " + str(max(results.history['val_acc'])))
+
+    print("Average validation Precision and Recall: " + str(np.mean(results.history["val_precision"])) + " " + str(
+        np.mean(results.history["val_recall"])))
+    print("Best validation Precision and Recall: " + str(max(results.history["val_precision"])) + " " + str(
+        max(results.history["val_recall"])))
+
+
+def kNearestNeighbors(metaInputList, labelInputList):
+
+    # Splitting test and training data
+    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=0.15)
+    # Features scaling to normalize dimensions
+    scaler = StandardScaler()
+    scaler.fit(X_train)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    # Calculating error for K values between 1 and 40
+    accuracies = []
+    error = []
+    for i in range(1, 40):
+        # Setting the value of K and fitting the training data
+        knn = KNeighborsClassifier(n_neighbors=i)       # n_neighbors is the value of K
+        knn.fit(X_train, y_train)
+        # Predict labels for all the testing data
+        pred_i = knn.predict(X_test)
+        # Calculate the accuracy value for this K
+        acc = accuracy_score(y_test, pred_i)
+        accuracies.append(acc)
+        print("Accuracy for K=" + str(i) + " is " + str(acc))
+        # Calculate error for the chart
+        error.append(np.mean(pred_i != y_test))
+
+    # Plot the error for all the values of K
+    plt.figure(figsize=(12, 6))
+    plt.plot(range(1, 40), error, color='red', linestyle='dashed', marker='o',
+             markerfacecolor='blue', markersize=10)
+    plt.title('Error Rate K Value')
+    plt.xlabel('K Value')
+    plt.ylabel('Mean Error')
+    plt.show()
+
+    # Calculating baccuracy for best value of K
+    bestAccuracy = max(accuracies)
+    print("\nHighest accuracy that can be reached by the model is: " + str(bestAccuracy))
 
 ##############################################################
 
@@ -152,6 +252,7 @@ else:
 metaInputList = []      # Contains metadata || INPUT 1
 imageInputList = []     # Contains screenshots || INPUT 2
 labelInputList = []     # Contains labels || LABEL
+labelIntegerList = []   # Labels as integers (not binary)
 dataCounters = [0] * numLabels
 for activity in labeledList:
     # Concatenating all metadata for the activity
@@ -191,6 +292,7 @@ for activity in labeledList:
     label = [0 for i in range(0, numLabels)]        # Transforming the label into the binary '00001000' format starting from decimal
     label[activity.labelNumeric-1] = 1
     labelInputList.append(label)
+    labelIntegerList.append(activity.labelNumeric)
 
     # Incrementing the counter for that specific label
     dataCounters[activity.labelNumeric-1] = dataCounters[activity.labelNumeric-1] + 1
@@ -202,58 +304,14 @@ print("Data was successfully parsed!\nLabels found: " + str(dataCounters))
 imageShape = imageInputList[-1].shape
 metadataShape = len(metaInputList[-1])
 print("Images have a shape of " + str(imageShape) + " while metadata is made of " + str(metadataShape) + " elements")
-model = setupFinalModel(imageShape, metadataShape, numLabels)
-# testModel = setupDataOnlyModel(metadataShape, numLabels)
 
 
 # Converting to numpy arrays
 metaInputList = np.array(metaInputList)
 imageInputList = np.array(imageInputList)
 labelInputList = np.array(labelInputList)
+labelIntegerList = np.array(labelIntegerList)
 
-# Training the model
-results = model.fit(
-                        x = [metaInputList, imageInputList],
-                        y = labelInputList,
-                        verbose=1,
-                        epochs=200,
-                        batch_size=6,
-                        shuffle=True,
-                        validation_split = validationPercentage
-                        )
-
-# results = testModel.fit(
-#                         x = metaInputList,
-#                         y = labelInputList,
-#                         verbose=1,
-#                         epochs=200,
-#                         batch_size=12,
-#                         shuffle=True,
-#                         validation_split = validationPercentage
-#                         )
-
-# Plot metrics
-#  "Accuracy"
-plt.plot(results.history['acc'])
-plt.plot(results.history['val_acc'])
-plt.title('Model accuracy')
-plt.ylabel('Accuracy')
-plt.xlabel('Epoch')
-plt.legend(['Training set', 'Validation set'], loc='upper left')
-plt.show()
-# "Loss"
-plt.plot(results.history['loss'])
-plt.plot(results.history['val_loss'])
-plt.title('Model loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend(['Training set', 'Validation set'], loc='upper left')
-plt.show()
-
-# Printing the validation results
-print("\n\nAverage Validation accuracy: " + str(np.mean(results.history["val_acc"])))
-# Finding best validation accuracy
-print("Best validation accuracy: " + str(max(results.history['val_acc'])))
-
-print("Average validation Precision and Recall: " + str(np.mean(results.history["val_precision"])) + " " + str(np.mean(results.history["val_recall"])))
-print("Best validation Precision and Recall: " + str(max(results.history["val_precision"])) + " " + str(max(results.history["val_recall"])))
+# Calling a Training function
+# singleTraining(imageShape, metadataShape, numLabels)
+kNearestNeighbors( metaInputList, labelIntegerList)

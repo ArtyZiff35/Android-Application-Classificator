@@ -25,16 +25,16 @@ def setupNNmodel(inputShape, outputShape):
     # Input - Layer
     model.add(Dense(inputShape, activation="relu", input_shape=(inputShape,)))
     # Hidden - Layers
-    model.add(Dropout(0.20, noise_shape=None, seed=None))
-    model.add(Dense(2000, activation="relu"))
-    model.add(Dropout(0.1, noise_shape=None, seed=None))
+    # model.add(Dropout(0.20, noise_shape=None, seed=None))
     model.add(Dense(1000, activation="relu"))
+    # model.add(Dropout(0.1, noise_shape=None, seed=None))
+    # model.add(Dense(100, activation="relu"))
     # Output- Layer
     model.add(Dense(outputShape, activation="softmax"))        # Was using sigmoid, but it is only between 0 and 1
     model.summary()
 
     model.compile(
-        loss='binary_crossentropy',
+        loss='kullback_leibler_divergence',
         optimizer=optimizers.SGD(lr=0.01, momentum=0.9),
         metrics=["accuracy",keras_metrics.precision(), keras_metrics.recall()]
     )
