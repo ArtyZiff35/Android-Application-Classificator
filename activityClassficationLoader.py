@@ -20,6 +20,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.ensemble import RandomForestClassifier
 
 
 
@@ -28,7 +29,7 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 ############### VARIABLES #####################
 storePath = "./activityClassificationData/labeledActivities.dat"
 numLabels = 8
-validationPercentage = 0.09
+validationPercentage = 0.08
 
 ############### NN ############################
 
@@ -120,10 +121,11 @@ def setupDataOnlyModel(metadataInputShape, outputShape):
     model.add(Dense(metadataInputShape, activation="relu", input_shape=(metadataInputShape,)))
     # Hidden - Layers
     # model.add(Dropout(0.20, noise_shape=None, seed=None))
-    model.add(Dense(100, activation="relu"))
+    model.add(Dense(50, activation="relu"))
     # model.add(Dropout(0.1, noise_shape=None, seed=None))
-    # model.add(Dense(100, activation="relu"))
+    model.add(Dense(10, activation="relu"))
     # model.add(Dense(50, activation="relu"))
+    model.add(Dense(5, activation="relu"))
     # Output- Layer
     model.add(Dense(outputShape, activation="softmax"))  # Was using sigmoid, but it is only between 0 and 1
     model.summary()
@@ -158,8 +160,8 @@ def singleTraining(imageShape, metadataShape, numLabels):
                             x = metaInputList,
                             y = labelInputList,
                             verbose=1,
-                            epochs=200,
-                            batch_size=12,
+                            epochs=1000,
+                            batch_size=24,
                             shuffle=True,
                             validation_split = validationPercentage
                             )
@@ -192,11 +194,14 @@ def singleTraining(imageShape, metadataShape, numLabels):
     print("Best validation Precision and Recall: " + str(max(results.history["val_precision"])) + " " + str(
         max(results.history["val_recall"])))
 
+    prediction = model.predict(np.array([metaInputList[-1],]))
+    print("Prediction is actually " + str(prediction))
+
 
 def kNearestNeighbors(metaInputList, labelInputList):
 
     # Splitting test and training data
-    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=0.15)
+    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage)
     # Features scaling to normalize dimensions
     scaler = StandardScaler()
     scaler.fit(X_train)
@@ -232,6 +237,56 @@ def kNearestNeighbors(metaInputList, labelInputList):
     bestAccuracy = max(accuracies)
     print("\nHighest accuracy that can be reached by the model is: " + str(bestAccuracy))
 
+
+def randomForest(metaInputList, labelInputList):
+
+    # Splitting test and training data
+    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage)
+
+    # Evaluating performance of the model for various numbers of trees
+    accuraciesTrain = []
+    accuraciesTest = []
+    for i in range(2,60):
+        # Defining the Random Forest Model
+        forestModel = RandomForestClassifier(n_estimators=i)  # n_estimators is the number of trees
+        # Training the model
+        forestModel.fit(X_train, y_train)
+        # Evaluating
+        accuraciesTrain.append(forestModel.score(X_train, y_train))
+        accuraciesTest.append(forestModel.score(X_test, y_test))
+        print('Random Forest accuracy: TRAINING', forestModel.score(X_train, y_train))
+        print('Random Forest accuracy: TESTING', forestModel.score(X_test, y_test))
+
+    # Plotting results
+    # NOTE: The results of this chart are used to determine the correct minimum value of n_estimators (trees)
+    plt.plot(accuraciesTrain)
+    plt.plot(accuraciesTest)
+    plt.title('Model accuracy')
+    plt.ylabel('Accuracy')
+    plt.xlabel('n_estimators')
+    plt.legend(['Training set', 'Training set'], loc='upper left')
+    plt.show()
+
+    # Calculating the importance for each feature
+    importances = forestModel.feature_importances_
+    # Returns the standard deviation, a measure of the spread of a distribution, of the array element
+    # In this specific case, it is referred to how the importance of a feature changes among all of the trees (estimators)
+    std = np.std([tree.feature_importances_ for tree in forestModel.estimators_], axis=0)
+    # Sorting the indices of the features basing upon their importance
+    indices = np.argsort(importances)[::-1]
+    # Print the feature ranking
+    print("Feature ranking:")
+    for i in range(X_train.shape[1]):
+        print("%d. feature %d (%f)" % (i + 1, indices[i], importances[indices[i]]))
+
+    # Plot the feature importances of the forest
+    plt.figure()
+    plt.title("Feature importances")
+    plt.bar(range(X_train.shape[1]), importances[indices], color="r", yerr=std[indices], align="center")
+    plt.xticks(range(X_train.shape[1]), indices)
+    plt.xlim([-1, X_train.shape[1]])
+    plt.show()
+
 ##############################################################
 
 # LOADING ACTIVITY DATASET LIST
@@ -262,9 +317,9 @@ for activity in labeledList:
     tmpArray.append(activity.numClickableBot)
     # tmpArray.append( int(activity.numClickableTop + activity.numClickableMid + activity.numClickableBot) ) # Adding the sum too
 
-    # tmpArray.append(activity.numSwipeableTop)
-    # tmpArray.append(activity.numSwipeableMid)
-    # tmpArray.append(activity.numSwipeableBot)
+    tmpArray.append(activity.numSwipeableTop)
+    tmpArray.append(activity.numSwipeableMid)
+    tmpArray.append(activity.numSwipeableBot)
     # tmpArray.append(int(activity.numSwipeableTop + activity.numSwipeableMid + activity.numSwipeableBot) ) # Adding the sum too
 
     tmpArray.append(activity.numEdittextTop)
@@ -272,9 +327,9 @@ for activity in labeledList:
     tmpArray.append(activity.numEdittextBot)
     # tmpArray.append(int(activity.numEdittextTop + activity.numEdittextMid + activity.numEdittextBot) ) # Adding the sum too
 
-    # tmpArray.append(activity.numLongclickTop)
-    # tmpArray.append(activity.numLongclickMid)
-    # tmpArray.append(activity.numLongclickBot)
+    tmpArray.append(activity.numLongclickTop)
+    tmpArray.append(activity.numLongclickMid)
+    tmpArray.append(activity.numLongclickBot)
     # tmpArray.append(int(activity.numLongclickTop + activity.numLongclickMid + activity.numLongclickBot) ) # Adding the sum too
 
     tmpArray.append(activity.numPassword)
@@ -314,4 +369,5 @@ labelIntegerList = np.array(labelIntegerList)
 
 # Calling a Training function
 # singleTraining(imageShape, metadataShape, numLabels)
-kNearestNeighbors( metaInputList, labelIntegerList)
+# kNearestNeighbors( metaInputList, labelIntegerList)
+randomForest(metaInputList, labelInputList)
