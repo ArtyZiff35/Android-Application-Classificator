@@ -21,15 +21,14 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score,precision_score, recall_score
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.tree import DecisionTreeClassifier
-from graphviz import Source
+from sklearn.tree import DecisionTreeClassifier, plot_tree, export_graphviz
 from sklearn import tree
 from sklearn import svm
 import pydotplus
 from IPython.display import Image
-from graphviz import Source
+import graphviz
 from sklearn import tree
-
+from sklearn.naive_bayes import GaussianNB
 
 
 
@@ -313,20 +312,15 @@ def decisionTree(metaInputList, labelInputList):
     print("\nAccuracy with Decision Tree is " + str(accuracy))
     features = [i for i in range(1,len(X_train[-1])+1)]
     # Visualizing tree
-    graph = Source(tree.export_graphviz(treeModel, out_file=None, feature_names=features))
-    png_bytes = graph.pipe(format='png')
-    with open('dtree_pipe.png', 'wb') as f:
-        f.write(png_bytes)
-
-    from IPython.display import Image
-    Image(png_bytes)
-
+    dot_data = tree.export_graphviz(treeModel, out_file=None, class_names=features)
+    graph = graphviz.Source(dot_data)
+    graph.render("./outputFiles/decisionTreeVisualization")
 
 # HYP: kernel type (linear, polynomial, gaussian, etc), regularization (C parameter), gamma value
 def supportVectorMachine(metaInputList, labelInputList):
 
     # Splitting test and training data
-    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage)
+    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage, stratify=labelInputList)
 
     # Features scaling to normalize dimensions
     scaler = StandardScaler()
@@ -340,15 +334,15 @@ def supportVectorMachine(metaInputList, labelInputList):
     recalls = []
     # Trying different values of C parameter
     for i in range(1, 50):
-        svmClassifier = svm.SVC(kernel='linear', C=i)  # Linear Kernel
+        svmClassifier = svm.SVC(kernel='linear', C=i, gamma='auto')  # Linear Kernel
         # Train the model using the training set
         svmClassifier.fit(X_train, y_train)
         # Predict the response for test dataset
         y_pred = svmClassifier.predict(X_test)
         # Calculating accuracy by comparing actual test labels and predicted labels
         accuracies.append(accuracy_score(y_test, y_pred))
-        precisions.append(precision_score(y_test, y_pred, average='weighted'))
-        recalls.append(recall_score(y_test, y_pred, average='weighted'))
+        precisions.append(precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
+        recalls.append(recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
 
     # Plotting for the polynomial
     plt.plot(accuracies)
@@ -366,15 +360,15 @@ def supportVectorMachine(metaInputList, labelInputList):
     recalls = []
     for i in range(2, 50):
         # Create a new SVM Classifier
-        svmClassifier = svm.SVC(kernel='poly', degree=i)  # Polynomial kernel for which we have to specify the degree
+        svmClassifier = svm.SVC(kernel='poly', degree=i, gamma='auto')  # Polynomial kernel for which we have to specify the degree
         # Train the model using the training set
         svmClassifier.fit(X_train, y_train)
         # Predict the response for test dataset
         y_pred = svmClassifier.predict(X_test)
         # Calculating accuracy by comparing actual test labels and predicted labels
         accuracies.append(accuracy_score(y_test, y_pred))
-        precisions.append(precision_score(y_test, y_pred, average='weighted'))
-        recalls.append(recall_score(y_test, y_pred, average='weighted'))
+        precisions.append(precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
+        recalls.append(recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
 
     # Plotting for the polynomial
     plt.plot(accuracies)
@@ -391,15 +385,15 @@ def supportVectorMachine(metaInputList, labelInputList):
     recalls = []
     # Trying different values of Gamma parameter
     for i in range(1, 50):
-        svmClassifier = svm.SVC(kernel='poly', C=i)                 # Gaussian Kernel
+        svmClassifier = svm.SVC(kernel='poly', C=i, gamma='auto')                 # Gaussian Kernel
         # Train the model using the training set
         svmClassifier.fit(X_train, y_train)
         # Predict the response for test dataset
         y_pred = svmClassifier.predict(X_test)
         # Calculating accuracy by comparing actual test labels and predicted labels
         accuracies.append(accuracy_score(y_test, y_pred))
-        precisions.append(precision_score(y_test, y_pred, average='weighted'))
-        recalls.append(recall_score(y_test, y_pred, average='weighted'))
+        precisions.append(precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
+        recalls.append(recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
 
     # Plotting for the polynomial
     plt.plot(accuracies)
@@ -409,6 +403,29 @@ def supportVectorMachine(metaInputList, labelInputList):
     plt.legend(['Accuracy'], loc='upper right')
     plt.show()
 
+
+# Multinomial Naive Bayes
+def naiveBayes(metaInputList, labelInputList):
+
+    # Splitting test and training data
+    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage, stratify=labelInputList)
+
+    # Create a Gaussian Classifier
+    nbModel = GaussianNB()
+    # Train the model using the training sets
+    nbModel.fit(X_train, y_train)
+    # Predict Output
+    y_pred = nbModel.predict(X_test)  # 0:Overcast, 2:Mild
+    # Calculating metrics
+    accuracy = accuracy_score(y_test, y_pred,)
+    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    print("Naive Bayes accuracy is: " + str(accuracy))
+    print("Naive Bayes precision is: " + str(precision))
+    print("Naive Bayes recall is: " + str(recall))
+
+    # Returning the metrics as results
+    return accuracy, precision, recall
 
 ##############################################################
 
@@ -496,3 +513,4 @@ labelIntegerList = np.array(labelIntegerList)
 # randomForest(metaInputList, labelInputList)
 decisionTree(metaInputList, labelInputList)
 # supportVectorMachine(metaInputList, labelIntegerList)
+# naiveBayes(metaInputList, labelIntegerList)
