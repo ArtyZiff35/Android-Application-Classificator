@@ -19,8 +19,18 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score,precision_score, recall_score
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from graphviz import Source
+from sklearn import tree
+from sklearn import svm
+import pydotplus
+from IPython.display import Image
+from graphviz import Source
+from sklearn import tree
+
+
 
 
 
@@ -121,11 +131,11 @@ def setupDataOnlyModel(metadataInputShape, outputShape):
     model.add(Dense(metadataInputShape, activation="relu", input_shape=(metadataInputShape,)))
     # Hidden - Layers
     # model.add(Dropout(0.20, noise_shape=None, seed=None))
-    model.add(Dense(50, activation="relu"))
+    model.add(Dense(100, activation="relu"))
     # model.add(Dropout(0.1, noise_shape=None, seed=None))
-    model.add(Dense(10, activation="relu"))
+    # model.add(Dense(5, activation="relu"))
     # model.add(Dense(50, activation="relu"))
-    model.add(Dense(5, activation="relu"))
+    # model.add(Dense(5, activation="relu"))
     # Output- Layer
     model.add(Dense(outputShape, activation="softmax"))  # Was using sigmoid, but it is only between 0 and 1
     model.summary()
@@ -161,7 +171,7 @@ def singleTraining(imageShape, metadataShape, numLabels):
                             y = labelInputList,
                             verbose=1,
                             epochs=1000,
-                            batch_size=24,
+                            batch_size=32,
                             shuffle=True,
                             validation_split = validationPercentage
                             )
@@ -197,7 +207,7 @@ def singleTraining(imageShape, metadataShape, numLabels):
     prediction = model.predict(np.array([metaInputList[-1],]))
     print("Prediction is actually " + str(prediction))
 
-
+# HYP: value of K
 def kNearestNeighbors(metaInputList, labelInputList):
 
     # Splitting test and training data
@@ -237,7 +247,7 @@ def kNearestNeighbors(metaInputList, labelInputList):
     bestAccuracy = max(accuracies)
     print("\nHighest accuracy that can be reached by the model is: " + str(bestAccuracy))
 
-
+# HYP: num trees
 def randomForest(metaInputList, labelInputList):
 
     # Splitting test and training data
@@ -286,6 +296,119 @@ def randomForest(metaInputList, labelInputList):
     plt.xticks(range(X_train.shape[1]), indices)
     plt.xlim([-1, X_train.shape[1]])
     plt.show()
+
+
+# HYP: criterions(gini, etc)
+def decisionTree(metaInputList, labelInputList):
+
+    # Splitting test and training data
+    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage)
+    # Defining the Decision tree
+    treeModel = DecisionTreeClassifier(criterion='gini')
+    # Fitting the training data
+    treeModel.fit(X_train, y_train)
+    # Predict the test data
+    y_predict = treeModel.predict(X_test)
+    accuracy = accuracy_score(y_test, y_predict)
+    print("\nAccuracy with Decision Tree is " + str(accuracy))
+    features = [i for i in range(1,len(X_train[-1])+1)]
+    # Visualizing tree
+    graph = Source(tree.export_graphviz(treeModel, out_file=None, feature_names=features))
+    png_bytes = graph.pipe(format='png')
+    with open('dtree_pipe.png', 'wb') as f:
+        f.write(png_bytes)
+
+    from IPython.display import Image
+    Image(png_bytes)
+
+
+# HYP: kernel type (linear, polynomial, gaussian, etc), regularization (C parameter), gamma value
+def supportVectorMachine(metaInputList, labelInputList):
+
+    # Splitting test and training data
+    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage)
+
+    # Features scaling to normalize dimensions
+    scaler = StandardScaler()
+    scaler.fit(X_train)
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    ## LINEAR KERNEL ##
+    accuracies = []
+    precisions = []
+    recalls = []
+    # Trying different values of C parameter
+    for i in range(1, 50):
+        svmClassifier = svm.SVC(kernel='linear', C=i)  # Linear Kernel
+        # Train the model using the training set
+        svmClassifier.fit(X_train, y_train)
+        # Predict the response for test dataset
+        y_pred = svmClassifier.predict(X_test)
+        # Calculating accuracy by comparing actual test labels and predicted labels
+        accuracies.append(accuracy_score(y_test, y_pred))
+        precisions.append(precision_score(y_test, y_pred, average='weighted'))
+        recalls.append(recall_score(y_test, y_pred, average='weighted'))
+
+    # Plotting for the polynomial
+    plt.plot(accuracies)
+    plt.title('SVM w/ Linear C values')
+    plt.ylabel('Accuracy')
+    plt.xlabel('C value')
+    plt.legend(['Accuracy'], loc='upper right')
+    plt.show()
+
+
+    ## POLYNOMIAL KERNEL ##
+    # Try different degrees for the polynomial
+    accuracies = []
+    precisions = []
+    recalls = []
+    for i in range(2, 50):
+        # Create a new SVM Classifier
+        svmClassifier = svm.SVC(kernel='poly', degree=i)  # Polynomial kernel for which we have to specify the degree
+        # Train the model using the training set
+        svmClassifier.fit(X_train, y_train)
+        # Predict the response for test dataset
+        y_pred = svmClassifier.predict(X_test)
+        # Calculating accuracy by comparing actual test labels and predicted labels
+        accuracies.append(accuracy_score(y_test, y_pred))
+        precisions.append(precision_score(y_test, y_pred, average='weighted'))
+        recalls.append(recall_score(y_test, y_pred, average='weighted'))
+
+    # Plotting for the polynomial
+    plt.plot(accuracies)
+    plt.title('SVM w/ Polynomial Kernel degrees')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Polynomial Degree')
+    plt.legend(['Accuracy'], loc='upper right')
+    plt.show()
+
+
+    ## GAUSSIAN KERNEL ##
+    accuracies = []
+    precisions = []
+    recalls = []
+    # Trying different values of Gamma parameter
+    for i in range(1, 50):
+        svmClassifier = svm.SVC(kernel='poly', C=i)                 # Gaussian Kernel
+        # Train the model using the training set
+        svmClassifier.fit(X_train, y_train)
+        # Predict the response for test dataset
+        y_pred = svmClassifier.predict(X_test)
+        # Calculating accuracy by comparing actual test labels and predicted labels
+        accuracies.append(accuracy_score(y_test, y_pred))
+        precisions.append(precision_score(y_test, y_pred, average='weighted'))
+        recalls.append(recall_score(y_test, y_pred, average='weighted'))
+
+    # Plotting for the polynomial
+    plt.plot(accuracies)
+    plt.title('SVM w/ Gaussian C values')
+    plt.ylabel('Accuracy')
+    plt.xlabel('C value')
+    plt.legend(['Accuracy'], loc='upper right')
+    plt.show()
+
 
 ##############################################################
 
@@ -370,4 +493,6 @@ labelIntegerList = np.array(labelIntegerList)
 # Calling a Training function
 # singleTraining(imageShape, metadataShape, numLabels)
 # kNearestNeighbors( metaInputList, labelIntegerList)
-randomForest(metaInputList, labelInputList)
+# randomForest(metaInputList, labelInputList)
+decisionTree(metaInputList, labelInputList)
+# supportVectorMachine(metaInputList, labelIntegerList)
