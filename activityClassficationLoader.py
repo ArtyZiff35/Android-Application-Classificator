@@ -38,7 +38,7 @@ from sklearn.naive_bayes import GaussianNB
 ############### VARIABLES #####################
 storePath = "./activityClassificationData/labeledActivities.dat"
 numLabels = 8
-validationPercentage = 0.08
+validationPercentage = 0.09
 
 ############### NN ############################
 
@@ -47,20 +47,14 @@ def setupImageConvModel(inputShape):
 
     model = Sequential()
 
-    poolingLayer = MaxPooling2D(pool_size=(2, 2),
-                                strides=(2, 2),
-                                input_shape=inputShape)
-    model.add(poolingLayer)
 
-    poolingLayer = MaxPooling2D(pool_size=(2, 2),
-                                strides=(2, 2))
-    model.add(poolingLayer)
 
     # Convolution Layer 1
     convLayer = Conv2D(filters=12,
                        kernel_size=(3, 3),
                        strides=(1, 1),
-                       activation='relu')
+                       activation='relu',
+                       input_shape=inputShape)
     model.add(convLayer)
     # Pooling Layer 1
     poolingLayer = MaxPooling2D(pool_size=(2, 2),
@@ -107,15 +101,15 @@ def setupFinalModel(imageInputShape, metadataInputShape, outputShape):
     #mergedModel = Sequential()
     #mergedModel.add(Concatenate([metadataModel, imageModel]))
     merged = concatenate([metadataModel.output, imageModel.output])
-    merged = Dense(100, activation="relu")(merged)
-    # merged = Dropout(0.1, noise_shape=None, seed=None)(merged)
     merged = Dense(50, activation="relu")(merged)
+    # merged = Dropout(0.1, noise_shape=None, seed=None)(merged)
+    # merged = Dense(50, activation="relu")(merged)
     out = Dense(outputShape, activation="softmax")(merged)
     mergedModel = Model([metadataModel.input, imageModel.input], out)
 
 
     mergedModel.compile(
-        loss='binary_crossentropy',
+        loss='categorical_crossentropy',
         optimizer=optimizers.SGD(lr=0.01, momentum=0.9),
         metrics=["accuracy", keras_metrics.precision(), keras_metrics.recall()]
     )
@@ -130,7 +124,7 @@ def setupDataOnlyModel(metadataInputShape, outputShape):
     model.add(Dense(metadataInputShape, activation="relu", input_shape=(metadataInputShape,)))
     # Hidden - Layers
     # model.add(Dropout(0.20, noise_shape=None, seed=None))
-    model.add(Dense(100, activation="relu"))
+    model.add(Dense(40, activation="relu"))
     # model.add(Dropout(0.1, noise_shape=None, seed=None))
     # model.add(Dense(5, activation="relu"))
     # model.add(Dense(50, activation="relu"))
@@ -140,7 +134,7 @@ def setupDataOnlyModel(metadataInputShape, outputShape):
     model.summary()
 
     model.compile(
-        loss='kullback_leibler_divergence',
+        loss='categorical_crossentropy',
         optimizer=optimizers.SGD(lr=0.01, momentum=0.9),
         metrics=["accuracy", keras_metrics.precision(), keras_metrics.recall()]
     )
@@ -151,29 +145,29 @@ def setupDataOnlyModel(metadataInputShape, outputShape):
 def singleTraining(imageShape, metadataShape, numLabels):
 
     # Instantiating model
-    # model = setupFinalModel(imageShape, metadataShape, numLabels)
-    model = setupDataOnlyModel(metadataShape, numLabels)
+    model = setupFinalModel(imageShape, metadataShape, numLabels)
+    # model = setupDataOnlyModel(metadataShape, numLabels)
 
     # Training the model
-    # results = model.fit(
-    #     x=[metaInputList, imageInputList],
-    #     y=labelInputList,
-    #     verbose=1,
-    #     epochs=200,
-    #     batch_size=6,
-    #     shuffle=True,
-    #     validation_split=validationPercentage
-    # )
-
     results = model.fit(
-                            x = metaInputList,
-                            y = labelInputList,
-                            verbose=1,
-                            epochs=1000,
-                            batch_size=32,
-                            shuffle=True,
-                            validation_split = validationPercentage
-                            )
+        x=[metaInputList, imageInputList],
+        y=labelInputList,
+        verbose=1,
+        epochs=200,
+        batch_size=12,
+        shuffle=True,
+        validation_split=validationPercentage
+    )
+
+    # results = model.fit(
+    #                         x = metaInputList,
+    #                         y = labelInputList,
+    #                         verbose=1,
+    #                         epochs=1000,
+    #                         batch_size=32,
+    #                         shuffle=True,
+    #                         validation_split = validationPercentage
+    #                         )
 
     # Plot metrics
     #  "Accuracy"
@@ -203,8 +197,8 @@ def singleTraining(imageShape, metadataShape, numLabels):
     print("Best validation Precision and Recall: " + str(max(results.history["val_precision"])) + " " + str(
         max(results.history["val_recall"])))
 
-    prediction = model.predict(np.array([metaInputList[-1],]))
-    print("Prediction is actually " + str(prediction))
+    # prediction = model.predict(np.array([metaInputList[-1],]))
+    # print("Prediction is actually " + str(prediction))
 
 # HYP: value of K
 def kNearestNeighbors(metaInputList, labelInputList):
@@ -246,6 +240,15 @@ def kNearestNeighbors(metaInputList, labelInputList):
     bestAccuracy = max(accuracies)
     print("\nHighest accuracy that can be reached by the model is: " + str(bestAccuracy))
 
+    # knn = KNeighborsClassifier(n_neighbors=5)  # n_neighbors is the value of K
+    # knn.fit(X_train, y_train)
+    # # Predict labels for all the testing data
+    # pred_i = knn.predict(X_test)
+    # # Calculate the accuracy value for this K
+    # acc = accuracy_score(y_test, pred_i)
+
+    # return acc
+
 # HYP: num trees
 def randomForest(metaInputList, labelInputList):
 
@@ -273,7 +276,7 @@ def randomForest(metaInputList, labelInputList):
     plt.title('Model accuracy')
     plt.ylabel('Accuracy')
     plt.xlabel('n_estimators')
-    plt.legend(['Training set', 'Training set'], loc='upper left')
+    plt.legend(['Training set', 'Testing set'], loc='upper right')
     plt.show()
 
     # Calculating the importance for each feature
@@ -294,14 +297,20 @@ def randomForest(metaInputList, labelInputList):
     plt.bar(range(X_train.shape[1]), importances[indices], color="r", yerr=std[indices], align="center")
     plt.xticks(range(X_train.shape[1]), indices)
     plt.xlim([-1, X_train.shape[1]])
+    plt.ylabel('Importance (Entropy)')
+    plt.xlabel('Feature ID')
     plt.show()
 
+    # forestModel = RandomForestClassifier(n_estimators=21)  # n_estimators is the number of trees
+    # # Training the model
+    # forestModel.fit(X_train, y_train)
+    # return forestModel.score(X_test, y_test)
 
 # HYP: criterions(gini, etc)
 def decisionTree(metaInputList, labelInputList):
 
     # Splitting test and training data
-    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage)
+    X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage, stratify=labelInputList)
     # Defining the Decision tree
     treeModel = DecisionTreeClassifier(criterion='gini')
     # Fitting the training data
@@ -309,12 +318,19 @@ def decisionTree(metaInputList, labelInputList):
     # Predict the test data
     y_predict = treeModel.predict(X_test)
     accuracy = accuracy_score(y_test, y_predict)
+    precision = precision_score(y_test, y_predict, average='weighted', labels=np.unique(y_predict))
+    recall = recall_score(y_test, y_predict, average='weighted', labels=np.unique(y_predict))
     print("\nAccuracy with Decision Tree is " + str(accuracy))
+    print("\nPrecision with Decision Tree is " + str(precision))
+    print("\nRecall with Decision Tree is " + str(recall))
     features = [i for i in range(1,len(X_train[-1])+1)]
     # Visualizing tree
     dot_data = tree.export_graphviz(treeModel, out_file=None, class_names=features)
     graph = graphviz.Source(dot_data)
     graph.render("./outputFiles/decisionTreeVisualization")
+
+    # Returning the metrics as results
+    return accuracy, precision, recall
 
 # HYP: kernel type (linear, polynomial, gaussian, etc), regularization (C parameter), gamma value
 def supportVectorMachine(metaInputList, labelInputList):
@@ -334,7 +350,7 @@ def supportVectorMachine(metaInputList, labelInputList):
     recalls = []
     # Trying different values of C parameter
     for i in range(1, 50):
-        svmClassifier = svm.SVC(kernel='linear', C=i, gamma='auto')  # Linear Kernel
+        svmClassifier = svm.SVC(kernel='linear', C=i, gamma='scale')  # Linear Kernel
         # Train the model using the training set
         svmClassifier.fit(X_train, y_train)
         # Predict the response for test dataset
@@ -352,13 +368,23 @@ def supportVectorMachine(metaInputList, labelInputList):
     plt.legend(['Accuracy'], loc='upper right')
     plt.show()
 
+    svmClassifier = svm.SVC(kernel='linear', C=5, gamma='auto')  # Linear Kernel
+    # Train the model using the training set
+    svmClassifier.fit(X_train, y_train)
+    # Predict the response for test dataset
+    y_pred = svmClassifier.predict(X_test)
+    # Calculating accuracy by comparing actual test labels and predicted labels
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    return accuracy, precision, recall
 
-    ## POLYNOMIAL KERNEL ##
+    # POLYNOMIAL KERNEL ##
     # Try different degrees for the polynomial
     accuracies = []
     precisions = []
     recalls = []
-    for i in range(2, 50):
+    for i in range(2, 15):
         # Create a new SVM Classifier
         svmClassifier = svm.SVC(kernel='poly', degree=i, gamma='auto')  # Polynomial kernel for which we have to specify the degree
         # Train the model using the training set
@@ -378,14 +404,40 @@ def supportVectorMachine(metaInputList, labelInputList):
     plt.legend(['Accuracy'], loc='upper right')
     plt.show()
 
+    # Try different C values for the polynomial kernel
+    # accuracies = []
+    # precisions = []
+    # recalls = []
+    # for i in range(2, 50):
+    #     # Create a new SVM Classifier
+    #     svmClassifier = svm.SVC(kernel='poly', degree=3, gamma='auto',
+    #                             C=i)  # Polynomial kernel for which we have to specify the degree
+    #     # Train the model using the training set
+    #     svmClassifier.fit(X_train, y_train)
+    #     # Predict the response for test dataset
+    #     y_pred = svmClassifier.predict(X_test)
+    #     # Calculating accuracy by comparing actual test labels and predicted labels
+    #     accuracies.append(accuracy_score(y_test, y_pred))
+    #     precisions.append(precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
+    #     recalls.append(recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
+    #
+    # # Plotting for the polynomial
+    # plt.plot(accuracies)
+    # plt.title('SVM w/ Polynomial C values')
+    # plt.ylabel('Accuracy')
+    # plt.xlabel('Polynomial Degree')
+    # plt.legend(['Accuracy'], loc='upper right')
+    # plt.show()
 
-    ## GAUSSIAN KERNEL ##
+
+
+    # GAUSSIAN KERNEL ##
     accuracies = []
     precisions = []
     recalls = []
     # Trying different values of Gamma parameter
     for i in range(1, 50):
-        svmClassifier = svm.SVC(kernel='poly', C=i, gamma='auto')                 # Gaussian Kernel
+        svmClassifier = svm.SVC(kernel='rbf', C=i, gamma='auto')                 # Gaussian Kernel
         # Train the model using the training set
         svmClassifier.fit(X_train, y_train)
         # Predict the response for test dataset
@@ -404,6 +456,7 @@ def supportVectorMachine(metaInputList, labelInputList):
     plt.show()
 
 
+
 # Multinomial Naive Bayes
 def naiveBayes(metaInputList, labelInputList):
 
@@ -415,7 +468,7 @@ def naiveBayes(metaInputList, labelInputList):
     # Train the model using the training sets
     nbModel.fit(X_train, y_train)
     # Predict Output
-    y_pred = nbModel.predict(X_test)  # 0:Overcast, 2:Mild
+    y_pred = nbModel.predict(X_test)
     # Calculating metrics
     accuracy = accuracy_score(y_test, y_pred,)
     precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
@@ -508,9 +561,28 @@ labelInputList = np.array(labelInputList)
 labelIntegerList = np.array(labelIntegerList)
 
 # Calling a Training function
-# singleTraining(imageShape, metadataShape, numLabels)
+singleTraining(imageShape, metadataShape, numLabels)
 # kNearestNeighbors( metaInputList, labelIntegerList)
 # randomForest(metaInputList, labelInputList)
-decisionTree(metaInputList, labelInputList)
+# decisionTree(metaInputList, labelInputList)
 # supportVectorMachine(metaInputList, labelIntegerList)
 # naiveBayes(metaInputList, labelIntegerList)
+
+# # Calculating average values over a specified number of runs
+# maxRuns = 20
+# totAcc = 0
+# totPrec = 0
+# totRecall = 0
+# for run in range(1,maxRuns+1):
+#     acc, prec, recall = naiveBayes(metaInputList, labelIntegerList)
+#     totAcc = totAcc + acc
+#     totPrec = totPrec + prec
+#     totRecall = totRecall + recall
+#     print("Run " + str(run) + " with accuracy " + str(acc) +  " with Prec " + str(prec) + " with recall " + str(recall))
+#
+# avgAcc = totAcc / maxRuns
+# avgPrec = totPrec / maxRuns
+# avgRecall = totRecall / maxRuns
+# print("Avg accuracy is " + str(avgAcc))
+# print("Avg precision is " + str(avgPrec))
+# print("Avg recall is " + str(avgRecall))
