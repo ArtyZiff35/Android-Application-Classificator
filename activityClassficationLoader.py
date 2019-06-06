@@ -17,6 +17,7 @@ import keras_metrics
 from matplotlib import pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score,precision_score, recall_score
@@ -29,6 +30,8 @@ from IPython.display import Image
 import graphviz
 from sklearn import tree
 from sklearn.naive_bayes import GaussianNB
+from sklearn.model_selection import KFold
+
 
 
 
@@ -38,7 +41,7 @@ from sklearn.naive_bayes import GaussianNB
 ############### VARIABLES #####################
 storePath = "./activityClassificationData/labeledActivities.dat"
 numLabels = 8
-validationPercentage = 0.09
+validationPercentage = 0.07
 
 ############### NN ############################
 
@@ -480,6 +483,60 @@ def naiveBayes(metaInputList, labelInputList):
     # Returning the metrics as results
     return accuracy, precision, recall
 
+
+def logisticRegression(metaInputList, labelInputList, alreadySplit=False, X_train=None, X_test=None, y_train=None, y_test=None):
+
+    # Splitting test and training data
+    if alreadySplit==False:
+        X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage, stratify=labelInputList)
+    # Instantiating the logistic Regression model
+    logisticRegr = LogisticRegression(solver='newton-cg', multi_class='ovr')
+    # Fitting the model
+    logisticRegr.fit(X_train, y_train)
+    # Predicting the output
+    y_pred = logisticRegr.predict(X_test)
+    # Calculating metrics
+    accuracy = accuracy_score(y_test, y_pred, )
+    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # print("Logistic Regression accuracy is: " + str(accuracy))
+    # print("Logistic Regression precision is: " + str(precision))
+    # print("Logistic Regression recall is: " + str(recall))
+
+    # Returning the metrics as results
+    return accuracy, precision, recall
+
+
+def Nfold(N, metaInputList, labelInputList, MLfunction):
+    # Prepare the range of indexes for Cross Validation
+    kfold = KFold(n_splits=N, shuffle=True)      #n_splits is the number of folds
+    # Iterating through those ranges of indexes
+    counter = 0
+    totAcc = 0
+    totPrec = 0
+    totRecall = 0
+    for train_index, test_index in kfold.split(metaInputList):
+        # Increasing iteration counter
+        counter = counter + 1
+        print("KFOLD ::: We are in iteration " + str(counter))
+        # Actually splitting the training and test data
+        X_train, X_test = metaInputList[train_index], metaInputList[test_index]
+        y_train, y_test = labelInputList[train_index], labelInputList[test_index]
+        # Executing the classification function
+        acc, prec, recall = MLfunction(metaInputList, labelIntegerList, alreadySplit=True, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
+        totAcc = totAcc + acc
+        totPrec = totPrec + prec
+        totRecall = totRecall + recall
+        print("Run " + str(counter) + " with accuracy " + str(acc) +  " with Prec " + str(prec) + " with recall " + str(recall))
+    # Measuring
+    kfoldAcc = totAcc / N
+    kfoldPrec = totPrec / N
+    kfoldRecall = totRecall / N
+    print("\nAvg accuracy is " + str(kfoldAcc))
+    print("Avg precision is " + str(kfoldPrec))
+    print("Avg recall is " + str(kfoldRecall))
+    # TODO: Rewrite other ML functions like Logistic Regression
+
 ##############################################################
 
 # LOADING ACTIVITY DATASET LIST
@@ -561,12 +618,13 @@ labelInputList = np.array(labelInputList)
 labelIntegerList = np.array(labelIntegerList)
 
 # Calling a Training function
-singleTraining(imageShape, metadataShape, numLabels)
+# singleTraining(imageShape, metadataShape, numLabels)
 # kNearestNeighbors( metaInputList, labelIntegerList)
 # randomForest(metaInputList, labelInputList)
 # decisionTree(metaInputList, labelInputList)
 # supportVectorMachine(metaInputList, labelIntegerList)
 # naiveBayes(metaInputList, labelIntegerList)
+# logisticRegression(metaInputList, labelIntegerList)
 
 # # Calculating average values over a specified number of runs
 # maxRuns = 20
@@ -574,7 +632,7 @@ singleTraining(imageShape, metadataShape, numLabels)
 # totPrec = 0
 # totRecall = 0
 # for run in range(1,maxRuns+1):
-#     acc, prec, recall = naiveBayes(metaInputList, labelIntegerList)
+#     acc, prec, recall = logisticRegression(metaInputList, labelIntegerList)
 #     totAcc = totAcc + acc
 #     totPrec = totPrec + prec
 #     totRecall = totRecall + recall
@@ -586,3 +644,5 @@ singleTraining(imageShape, metadataShape, numLabels)
 # print("Avg accuracy is " + str(avgAcc))
 # print("Avg precision is " + str(avgPrec))
 # print("Avg recall is " + str(avgRecall))
+
+Nfold(11, metaInputList, labelIntegerList, logisticRegression)
