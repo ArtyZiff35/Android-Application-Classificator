@@ -31,6 +31,10 @@ import graphviz
 from sklearn import tree
 from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import KFold
+import seaborn as sns
+import pandas as pd
+
+
 
 
 
@@ -41,7 +45,7 @@ from sklearn.model_selection import KFold
 ############### VARIABLES #####################
 storePath = "./activityClassificationData/labeledActivities.dat"
 numLabels = 8
-validationPercentage = 0.07
+validationPercentage = 0.09
 
 ############### NN ############################
 
@@ -250,9 +254,11 @@ def kNearestNeighbors(metaInputList, labelInputList, alreadySplit=False, X_train
     # Predict labels for all the testing data
     pred_i = knn.predict(X_test)
     # Calculate the accuracy value for this K
-    acc = accuracy_score(y_test, pred_i)
+    accuracy = accuracy_score(y_test, pred_i)
+    precision = precision_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
+    recall = recall_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
 
-    return acc, 0, 0
+    return accuracy, precision, recall
 
 # HYP: num trees
 def randomForest(metaInputList, labelInputList, alreadySplit=False, X_train=None, X_test=None, y_train=None, y_test=None):
@@ -311,7 +317,16 @@ def randomForest(metaInputList, labelInputList, alreadySplit=False, X_train=None
     forestModel = RandomForestClassifier(n_estimators=21)  # n_estimators is the number of trees
     # Training the model
     forestModel.fit(X_train, y_train)
-    return forestModel.score(X_test, y_test), 0, 0
+
+    # Predict labels for all the testing data
+    pred_i = forestModel.predict(X_test)
+    # Calculate the accuracy value for this K
+    accuracy = accuracy_score(y_test, pred_i)
+    precision = precision_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
+    recall = recall_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
+
+    return accuracy, precision, recall
+
 
 # HYP: criterions(gini, etc)
 def decisionTree(metaInputList, labelInputList, alreadySplit=False, X_train=None, X_test=None, y_train=None, y_test=None):
@@ -377,18 +392,18 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     # plt.legend(['Accuracy'], loc='upper right')
     # plt.show()
 
-    ##---------------------------##
-    svmClassifier = svm.SVC(kernel='linear', C=5, gamma='auto')  # Linear Kernel
-    # Train the model using the training set
-    svmClassifier.fit(X_train, y_train)
-    # Predict the response for test dataset
-    y_pred = svmClassifier.predict(X_test)
-    # Calculating accuracy by comparing actual test labels and predicted labels
-    accuracy = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    return accuracy, precision, recall
-    ##---------------------------##
+    # #---------------------------##
+    # svmClassifier = svm.SVC(kernel='linear', C=5, gamma='auto')  # Linear Kernel
+    # # Train the model using the training set
+    # svmClassifier.fit(X_train, y_train)
+    # # Predict the response for test dataset
+    # y_pred = svmClassifier.predict(X_test)
+    # # Calculating accuracy by comparing actual test labels and predicted labels
+    # accuracy = accuracy_score(y_test, y_pred)
+    # precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # return accuracy, precision, recall
+    # #---------------------------##
 
     # POLYNOMIAL KERNEL ##
     # # Try different degrees for the polynomial
@@ -441,7 +456,7 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     # plt.show()
 
     # ##---------------------------##
-    # svmClassifier = svm.SVC(kernel='poly', C=30, degree=1, gamma='auto')  # Linear Kernel
+    # svmClassifier = svm.SVC(kernel='poly', C=30, degree=2, gamma='auto')  # Linear Kernel
     # # Train the model using the training set
     # svmClassifier.fit(X_train, y_train)
     # # Predict the response for test dataset
@@ -478,18 +493,18 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     # plt.legend(['Accuracy'], loc='upper right')
     # plt.show()
 
-    # ##---------------------------##
-    # svmClassifier = svm.SVC(kernel='rbf', C=4, gamma='auto')  # Linear Kernel
-    # # Train the model using the training set
-    # svmClassifier.fit(X_train, y_train)
-    # # Predict the response for test dataset
-    # y_pred = svmClassifier.predict(X_test)
-    # # Calculating accuracy by comparing actual test labels and predicted labels
-    # accuracy = accuracy_score(y_test, y_pred)
-    # precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    # recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    # return accuracy, precision, recall
-    # ##---------------------------##
+    ##---------------------------##
+    svmClassifier = svm.SVC(kernel='rbf', C=4, gamma='auto')  # Linear Kernel
+    # Train the model using the training set
+    svmClassifier.fit(X_train, y_train)
+    # Predict the response for test dataset
+    y_pred = svmClassifier.predict(X_test)
+    # Calculating accuracy by comparing actual test labels and predicted labels
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    return accuracy, precision, recall
+    ##---------------------------##
 
 
 
@@ -534,15 +549,15 @@ def logisticRegression(metaInputList, labelInputList, alreadySplit=False, X_trai
     accuracy = accuracy_score(y_test, y_pred, )
     precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
     recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    # print("Logistic Regression accuracy is: " + str(accuracy))
-    # print("Logistic Regression precision is: " + str(precision))
-    # print("Logistic Regression recall is: " + str(recall))
+    print("Logistic Regression accuracy is: " + str(accuracy))
+    print("Logistic Regression precision is: " + str(precision))
+    print("Logistic Regression recall is: " + str(recall))
 
-    # Try different C values for the Regression
+    # # Try different C values for the Regression
     # accuracies = []
     # precisions = []
     # recalls = []
-    # for i in range(2, 50):
+    # for i in range(2, 25):
     #     # Instantiating the logistic Regression model
     #     logisticRegr = LogisticRegression(solver='newton-cg', multi_class='ovr', C=i)
     #     # Fitting the model
@@ -561,6 +576,7 @@ def logisticRegression(metaInputList, labelInputList, alreadySplit=False, X_trai
     # plt.xlabel('C Value')
     # plt.legend(['Accuracy'], loc='upper right')
     # plt.show()
+
 
     # Returning the metrics as results
     return accuracy, precision, recall
@@ -624,6 +640,32 @@ def leaveOneOut(metaInputList, labelInputList, MLfunction):
     print("\n[LOO] Avg accuracy is " + str(kfoldAcc))
     print("[LOO] Avg precision is " + str(kfoldPrec))
     print("[LOO] Avg recall is " + str(kfoldRecall))
+
+
+# This function simply prints the confusion matrix for a given pair of labels
+def printConfusionMatrix(y_test, y_pred):
+
+    # Generating the confusion matrix
+    confMat = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1), labels=[1,2,3,4,5,6,7,8])
+    # Preparing the class names
+    class_names = ["ToDo", "Ad", "Login", "List", "Portal", "Browser", "Map", "Messages"]
+
+    # Preparing the chart
+    df_cm = pd.DataFrame(
+        confMat, index=class_names, columns=class_names,
+    )
+    fig = plt.figure()
+    try:
+        heatmap = sns.heatmap(df_cm, annot=True, fmt="d")
+    except ValueError:
+        raise ValueError("Confusion matrix values must be integers.")
+    heatmap.yaxis.set_ticklabels(heatmap.yaxis.get_ticklabels(), rotation=0, ha='right')
+    heatmap.xaxis.set_ticklabels(heatmap.xaxis.get_ticklabels(), rotation=45, ha='right')
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    # Showing the Confusion Matrix
+    plt.show()
+
 
 
 ##############################################################
@@ -713,7 +755,7 @@ labelIntegerList = np.array(labelIntegerList)
 # decisionTree(metaInputList, labelInputList)
 # supportVectorMachine(metaInputList, labelIntegerList)
 # naiveBayes(metaInputList, labelIntegerList)
-# logisticRegression(metaInputList, labelIntegerList)
+logisticRegression(metaInputList, labelIntegerList)
 
 # # Calculating average values over a specified number of runs
 # maxRuns = 20
@@ -721,7 +763,7 @@ labelIntegerList = np.array(labelIntegerList)
 # totPrec = 0
 # totRecall = 0
 # for run in range(1,maxRuns+1):
-#     acc, prec, recall = logisticRegression(metaInputList, labelIntegerList)
+#     acc, prec, recall = randomForest(metaInputList, labelIntegerList)
 #     totAcc = totAcc + acc
 #     totPrec = totPrec + prec
 #     totRecall = totRecall + recall
@@ -735,6 +777,6 @@ labelIntegerList = np.array(labelIntegerList)
 # print("Avg recall is " + str(avgRecall))
 
 # Trying N-FOLD
-Nfold(11, metaInputList, labelIntegerList, logisticRegression)
+# Nfold(11, metaInputList, labelIntegerList, logisticRegression)
 # Leave One Out
 # leaveOneOut(metaInputList, labelIntegerList, logisticRegression)
