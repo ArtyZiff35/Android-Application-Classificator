@@ -292,27 +292,6 @@ def randomForest(metaInputList, labelInputList, alreadySplit=False, X_train=None
     # plt.legend(['Training set', 'Testing set'], loc='upper right')
     # plt.show()
     #
-    # # Calculating the importance for each feature
-    # importances = forestModel.feature_importances_
-    # # Returns the standard deviation, a measure of the spread of a distribution, of the array element
-    # # In this specific case, it is referred to how the importance of a feature changes among all of the trees (estimators)
-    # std = np.std([tree.feature_importances_ for tree in forestModel.estimators_], axis=0)
-    # # Sorting the indices of the features basing upon their importance
-    # indices = np.argsort(importances)[::-1]
-    # # Print the feature ranking
-    # print("Feature ranking:")
-    # for i in range(X_train.shape[1]):
-    #     print("%d. feature %d (%f)" % (i + 1, indices[i], importances[indices[i]]))
-    #
-    # # Plot the feature importances of the forest
-    # plt.figure()
-    # plt.title("Feature importances")
-    # plt.bar(range(X_train.shape[1]), importances[indices], color="r", yerr=std[indices], align="center")
-    # plt.xticks(range(X_train.shape[1]), indices)
-    # plt.xlim([-1, X_train.shape[1]])
-    # plt.ylabel('Importance (Entropy)')
-    # plt.xlabel('Feature ID')
-    # plt.show()
 
     ##---------------------------##
     forestModel = RandomForestClassifier(n_estimators=21)  # n_estimators is the number of trees
@@ -325,6 +304,28 @@ def randomForest(metaInputList, labelInputList, alreadySplit=False, X_train=None
     accuracy = accuracy_score(y_test, pred_i)
     precision = precision_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
     recall = recall_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
+
+    # # Calculating the importance for each feature
+    importances = forestModel.feature_importances_
+    # Returns the standard deviation, a measure of the spread of a distribution, of the array element
+    # In this specific case, it is referred to how the importance of a feature changes among all of the trees (estimators)
+    std = np.std([tree.feature_importances_ for tree in forestModel.estimators_], axis=0)
+    # Sorting the indices of the features basing upon their importance
+    indices = np.argsort(importances)[::-1]
+    # Print the feature ranking
+    print("Feature ranking:")
+    for i in range(X_train.shape[1]):
+        print("%d. feature %d (%f)" % (i + 1, indices[i], importances[indices[i]]))
+
+    # Plot the feature importances of the forest
+    plt.figure()
+    plt.title("Feature importances")
+    plt.bar(range(X_train.shape[1]), importances[indices], color="r", yerr=std[indices], align="center")
+    plt.xticks(range(X_train.shape[1]), indices)
+    plt.xlim([-1, X_train.shape[1]])
+    plt.ylabel('Importance (Entropy)')
+    plt.xlabel('Feature ID')
+    plt.show()
 
     return accuracy, precision, recall
 
@@ -456,18 +457,18 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     # plt.legend(['Accuracy'], loc='upper right')
     # plt.show()
 
-    # ##---------------------------##
-    # svmClassifier = svm.SVC(kernel='poly', C=30, degree=2, gamma='auto')  # Linear Kernel
-    # # Train the model using the training set
-    # svmClassifier.fit(X_train, y_train)
-    # # Predict the response for test dataset
-    # y_pred = svmClassifier.predict(X_test)
-    # # Calculating accuracy by comparing actual test labels and predicted labels
-    # accuracy = accuracy_score(y_test, y_pred)
-    # precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    # recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    # return accuracy, precision, recall
-    # ##---------------------------##
+    ##---------------------------##
+    svmClassifier = svm.SVC(kernel='poly', C=30, degree=2, gamma='auto')  # Linear Kernel
+    # Train the model using the training set
+    svmClassifier.fit(X_train, y_train)
+    # Predict the response for test dataset
+    y_pred = svmClassifier.predict(X_test)
+    # Calculating accuracy by comparing actual test labels and predicted labels
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    return accuracy, precision, recall
+    ##---------------------------##
 
 
     # GAUSSIAN KERNEL ##
@@ -494,18 +495,18 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     # plt.legend(['Accuracy'], loc='upper right')
     # plt.show()
 
-    ##---------------------------##
-    svmClassifier = svm.SVC(kernel='rbf', C=4, gamma='auto')  # Linear Kernel
-    # Train the model using the training set
-    svmClassifier.fit(X_train, y_train)
-    # Predict the response for test dataset
-    y_pred = svmClassifier.predict(X_test)
-    # Calculating accuracy by comparing actual test labels and predicted labels
-    accuracy = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    return accuracy, precision, recall
-    ##---------------------------##
+    # ##---------------------------##
+    # svmClassifier = svm.SVC(kernel='rbf', C=4, gamma='auto')  # Linear Kernel
+    # # Train the model using the training set
+    # svmClassifier.fit(X_train, y_train)
+    # # Predict the response for test dataset
+    # y_pred = svmClassifier.predict(X_test)
+    # # Calculating accuracy by comparing actual test labels and predicted labels
+    # accuracy = accuracy_score(y_test, y_pred)
+    # precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # return accuracy, precision, recall
+    # ##---------------------------##
 
 
 
@@ -884,44 +885,75 @@ labelIntegerList = np.array(labelIntegerList)
 # Calling a Training function
 # singleTraining(imageShape, metadataShape, numLabels)
 # kNearestNeighbors( metaInputList, labelIntegerList)
-# randomForest(metaInputList, labelInputList)
+randomForest(metaInputList, labelInputList)
 # decisionTree(metaInputList, labelInputList)
 # supportVectorMachine(metaInputList, labelIntegerList)
 # naiveBayes(metaInputList, labelIntegerList)
 # logisticRegression(metaInputList, labelIntegerList)
 
 # # Calculating average values over a specified number of runs
-# maxRuns = 20
-# totAcc = 0
-# totPrec = 0
-# totRecall = 0
-# for run in range(1,maxRuns+1):
-#     acc, prec, recall = randomForest(metaInputList, labelIntegerList)
-#     totAcc = totAcc + acc
-#     totPrec = totPrec + prec
-#     totRecall = totRecall + recall
-#     print("Run " + str(run) + " with accuracy " + str(acc) +  " with Prec " + str(prec) + " with recall " + str(recall))
+# bestAcc = 0
+# bestPrec = 0
+# bestRecall = 0
+# for i in range(0,30):
 #
-# avgAcc = totAcc / maxRuns
-# avgPrec = totPrec / maxRuns
-# avgRecall = totRecall / maxRuns
-# print("Avg accuracy is " + str(avgAcc))
-# print("Avg precision is " + str(avgPrec))
-# print("Avg recall is " + str(avgRecall))
+#     maxRuns = 20
+#     totAcc = 0
+#     totPrec = 0
+#     totRecall = 0
+#     for run in range(1,maxRuns+1):
+#         acc, prec, recall = supportVectorMachine(metaInputList, labelIntegerList)
+#         totAcc = totAcc + acc
+#         totPrec = totPrec + prec
+#         totRecall = totRecall + recall
+#         print("Run " + str(run) + " with accuracy " + str(acc) +  " with Prec " + str(prec) + " with recall " + str(recall))
+#
+#     avgAcc = totAcc / maxRuns
+#     avgPrec = totPrec / maxRuns
+#     avgRecall = totRecall / maxRuns
+#     print("Avg accuracy is " + str(avgAcc))
+#     print("Avg precision is " + str(avgPrec))
+#     print("Avg recall is " + str(avgRecall))
+#
+#     acc = avgAcc
+#     prec = avgPrec
+#     rec = avgRecall
+#     # Finding Max
+#     if acc > bestAcc:
+#         bestAcc = acc
+#     if prec > bestPrec:
+#         bestPrec = prec
+#     if rec > bestRecall:
+#         bestRecall = rec
+# print("\n\n---> Best AVG20 values found are ACC: " + str(bestAcc) + " || PREC: " + str(bestPrec) + " || REC: " + str(bestRecall))
+
 
 # Trying N-FOLD
-bestAcc = 0
-bestPrec = 0
-bestRecall = 0
-for i in range(0,30):
-    acc, prec, rec = Nfold(11, metaInputList, labelIntegerList, logisticRegression)
-    # Finding Max
-    if acc > bestAcc:
-        bestAcc = acc
-    if prec > bestPrec:
-        bestPrec = prec
-    if rec > bestRecall:
-        bestRecall = rec
-print("\n\nBest 11-FOLD values found are ACC: " + str(bestAcc) + " || PREC: " + str(bestPrec) + " || REC: " + str(bestRecall))
+# bestAcc = 0
+# bestPrec = 0
+# bestRecall = 0
+# for i in range(0,30):
+#     acc, prec, rec = Nfold(11, metaInputList, labelIntegerList, supportVectorMachine)
+#     # Finding Max
+#     if acc > bestAcc:
+#         bestAcc = acc
+#     if prec > bestPrec:
+#         bestPrec = prec
+#     if rec > bestRecall:
+#         bestRecall = rec
+# print("\n\n---> Best 11-FOLD values found are ACC: " + str(bestAcc) + " || PREC: " + str(bestPrec) + " || REC: " + str(bestRecall))
+
 # Leave One Out
-# leaveOneOut(metaInputList, labelIntegerList, logisticRegression)
+# bestAcc = 0
+# bestPrec = 0
+# bestRecall = 0
+# for i in range(0,10):
+#     acc, prec, rec = leaveOneOut(metaInputList, labelIntegerList, randomForest)
+#     # Finding Max
+#     if acc > bestAcc:
+#         bestAcc = acc
+#     if prec > bestPrec:
+#         bestPrec = prec
+#     if rec > bestRecall:
+#         bestRecall = rec
+# print("\n\n---> Best LOO values found are ACC: " + str(bestAcc) + " || PREC: " + str(bestPrec) + " || REC: " + str(bestRecall))
