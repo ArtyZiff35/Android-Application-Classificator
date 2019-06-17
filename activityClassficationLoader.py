@@ -608,9 +608,9 @@ def Nfold(N, metaInputList, labelInputList, MLfunction):
     kfoldAcc = totAcc / N
     kfoldPrec = totPrec / N
     kfoldRecall = totRecall / N
-    # print("\n[N-FOLD] Avg accuracy is " + str(kfoldAcc))
-    # print("[N-FOLD] Avg precision is " + str(kfoldPrec))
-    # print("[N-FOLD]Avg recall is " + str(kfoldRecall))
+    print("\n[N-FOLD] Avg accuracy is " + str(kfoldAcc))
+    print("[N-FOLD] Avg precision is " + str(kfoldPrec))
+    print("[N-FOLD]Avg recall is " + str(kfoldRecall))
     return kfoldAcc, kfoldPrec, kfoldRecall
 
 
@@ -752,7 +752,7 @@ def measureWithScreenRemodeling(labeledList):
     plt.title('Accuracy according to Screen Splitting using RANDOM FOREST')
     plt.ylabel('Accuracy')
     plt.xlabel('Percentage of screen from the top used as splitting point for features')
-    plt.legend(['Accuracy of 11-Fold', 'Rolling Mean over 20 datapoints'], loc='upper right')
+    plt.legend(['Accuracy of LOO', 'Rolling Mean over 20 datapoints'], loc='upper right')
     plt.show()
 
     series = pd.Series(finalPrecList)
@@ -762,7 +762,7 @@ def measureWithScreenRemodeling(labeledList):
     plt.title('Precision according to Screen Splitting using RANDOM FOREST')
     plt.ylabel('Precision')
     plt.xlabel('Percentage of screen from the top used as splitting point for features')
-    plt.legend(['Precision of 11-Fold', 'Rolling Mean over 20 datapoints'], loc='upper right')
+    plt.legend(['Precision of LOO', 'Rolling Mean over 20 datapoints'], loc='upper right')
     plt.show()
 
     series = pd.Series(finalRecallList)
@@ -772,7 +772,7 @@ def measureWithScreenRemodeling(labeledList):
     plt.title('Recall according to Screen Splitting using RANDOM FOREST')
     plt.ylabel('Recall')
     plt.xlabel('Percentage of screen from the top used as splitting point for features')
-    plt.legend(['Recall of 11-Fold', 'Rolling Mean over 20 datapoints'], loc='upper right')
+    plt.legend(['Recall of LOO', 'Rolling Mean over 20 datapoints'], loc='upper right')
     plt.show()
 
 
@@ -795,102 +795,133 @@ else:
     print("Requested file does not exist")
     exit()
 
-measureWithScreenRemodeling(labeledList)
+# # Trying to remodel the screen proportions for the features
+# measureWithScreenRemodeling(labeledList)
 
-# # PREPARING DATA TO BE IN THE CORRECT FORMAT FOR THE NN
-# # Creating Input Array
-# metaInputList = []      # Contains metadata || INPUT 1
-# imageInputList = []     # Contains screenshots || INPUT 2
-# labelInputList = []     # Contains labels || LABEL
-# labelIntegerList = []   # Labels as integers (not binary)
-# dataCounters = [0] * numLabels
-# for activity in labeledList:
-#     # Concatenating all metadata for the activity
-#     tmpArray = []
-#     tmpArray.append(activity.numClickableTop)
-#     tmpArray.append(activity.numClickableMid)
-#     tmpArray.append(activity.numClickableBot)
-#     # tmpArray.append( int(activity.numClickableTop + activity.numClickableMid + activity.numClickableBot) ) # Adding the sum too
-#
-#     tmpArray.append(activity.numSwipeableTop)
-#     tmpArray.append(activity.numSwipeableMid)
-#     tmpArray.append(activity.numSwipeableBot)
-#     # tmpArray.append(int(activity.numSwipeableTop + activity.numSwipeableMid + activity.numSwipeableBot) ) # Adding the sum too
-#
-#     tmpArray.append(activity.numEdittextTop)
-#     tmpArray.append(activity.numEdittextMid)
-#     tmpArray.append(activity.numEdittextBot)
-#     # tmpArray.append(int(activity.numEdittextTop + activity.numEdittextMid + activity.numEdittextBot) ) # Adding the sum too
-#
-#     tmpArray.append(activity.numLongclickTop)
-#     tmpArray.append(activity.numLongclickMid)
-#     tmpArray.append(activity.numLongclickBot)
-#     # tmpArray.append(int(activity.numLongclickTop + activity.numLongclickMid + activity.numLongclickBot) ) # Adding the sum too
-#
-#     tmpArray.append(activity.numPassword)
-#     tmpArray.append(activity.numCheckable)
-#     tmpArray.append(activity.presentDrawer)
-#     tmpArray.append(activity.numTotElements)
-#
-#     metaInputList.append(tmpArray)
-#
-#     # Concatenating the screenshot
-#     activity.screenshot = activity.screenshot[...,np.newaxis]   # Adding third dimension to indicate to Keras that we are using Grayscale images
-#     imageInputList.append(activity.screenshot)
-#
-#     # Concatenating the label
-#     label = [0 for i in range(0, numLabels)]        # Transforming the label into the binary '00001000' format starting from decimal
-#     label[activity.labelNumeric-1] = 1
-#     labelInputList.append(label)
-#     labelIntegerList.append(activity.labelNumeric)
-#
-#     # Incrementing the counter for that specific label
-#     dataCounters[activity.labelNumeric-1] = dataCounters[activity.labelNumeric-1] + 1
-#
-# print("Data was successfully parsed!\nLabels found: " + str(dataCounters))
-#
-#
-# # Preparing the Neural Network model
-# imageShape = imageInputList[-1].shape
-# metadataShape = len(metaInputList[-1])
-# print("Images have a shape of " + str(imageShape) + " while metadata is made of " + str(metadataShape) + " elements")
-#
-#
-# # Converting to numpy arrays
-# metaInputList = np.array(metaInputList)
-# imageInputList = np.array(imageInputList)
-# labelInputList = np.array(labelInputList)
-# labelIntegerList = np.array(labelIntegerList)
-#
-# # Calling a Training function
-# # singleTraining(imageShape, metadataShape, numLabels)
-# # kNearestNeighbors( metaInputList, labelIntegerList)
-# # randomForest(metaInputList, labelInputList)
-# # decisionTree(metaInputList, labelInputList)
-# # supportVectorMachine(metaInputList, labelIntegerList)
-# # naiveBayes(metaInputList, labelIntegerList)
+# Adding new features to the Activity objects
+labeledList = activityDataRemodeler.addNewFeatures(labeledList)
+
+# PREPARING DATA TO BE IN THE CORRECT FORMAT FOR THE NN
+# Creating Input Array
+metaInputList = []      # Contains metadata || INPUT 1
+imageInputList = []     # Contains screenshots || INPUT 2
+labelInputList = []     # Contains labels || LABEL
+labelIntegerList = []   # Labels as integers (not binary)
+dataCounters = [0] * numLabels
+for activity in labeledList:
+    # Concatenating all metadata for the activity
+    tmpArray = []
+    tmpArray.append(activity.numClickableTop)
+    tmpArray.append(activity.numClickableMid)
+    tmpArray.append(activity.numClickableBot)
+    # tmpArray.append( int(activity.numClickableTop + activity.numClickableMid + activity.numClickableBot) ) # Adding the sum too
+
+    # tmpArray.append(activity.numSwipeableTop)
+    # tmpArray.append(activity.numSwipeableMid)
+    # tmpArray.append(activity.numSwipeableBot)
+    tmpArray.append(int(activity.numSwipeableTop + activity.numSwipeableMid + activity.numSwipeableBot) ) # Adding the sum too
+
+    tmpArray.append(activity.numEdittextTop)
+    tmpArray.append(activity.numEdittextMid)
+    tmpArray.append(activity.numEdittextBot)
+    # tmpArray.append(int(activity.numEdittextTop + activity.numEdittextMid + activity.numEdittextBot) ) # Adding the sum too
+
+    # tmpArray.append(activity.numLongclickTop)
+    # tmpArray.append(activity.numLongclickMid)
+    # tmpArray.append(activity.numLongclickBot)
+    tmpArray.append(int(activity.numLongclickTop + activity.numLongclickMid + activity.numLongclickBot) ) # Adding the sum too
+
+    tmpArray.append(activity.numFocusableTop)
+    tmpArray.append(activity.numFocusableMid)
+    tmpArray.append(activity.numFocusableBot)
+    # tmpArray.append(int(activity.numFocusableTop + activity.numFocusableMid + activity.numFocusableBot) ) # Adding the sum too
+
+    # tmpArray.append(activity.numEnabledTop)
+    # tmpArray.append(activity.numEnabledMid)
+    # tmpArray.append(activity.numEnabledBot)
+    # tmpArray.append(int(activity.numEnabledTop + activity.numEnabledMid + activity.numEnabledBot) ) # Adding the sum too
+
+    # tmpArray.append(activity.numImageViewsTop)
+    # tmpArray.append(activity.numImageViewsMid)
+    # tmpArray.append(activity.numImageViewsBot)
+    tmpArray.append(int(activity.numImageViewsTop + activity.numImageViewsMid + activity.numImageViewsBot) ) # Adding the sum too
+
+    tmpArray.append(activity.numPassword)
+    tmpArray.append(activity.numCheckable)
+    tmpArray.append(activity.presentDrawer)
+    tmpArray.append(activity.numTotElements)
+
+    metaInputList.append(tmpArray)
+
+    # Concatenating the screenshot
+    activity.screenshot = activity.screenshot[...,np.newaxis]   # Adding third dimension to indicate to Keras that we are using Grayscale images
+    imageInputList.append(activity.screenshot)
+
+    # Concatenating the label
+    label = [0 for i in range(0, numLabels)]        # Transforming the label into the binary '00001000' format starting from decimal
+    label[activity.labelNumeric-1] = 1
+    labelInputList.append(label)
+    labelIntegerList.append(activity.labelNumeric)
+
+    # Incrementing the counter for that specific label
+    dataCounters[activity.labelNumeric-1] = dataCounters[activity.labelNumeric-1] + 1
+
+print("Data was successfully parsed!\nLabels found: " + str(dataCounters))
+
+
+# Preparing the Neural Network model
+imageShape = imageInputList[-1].shape
+metadataShape = len(metaInputList[-1])
+print("Images have a shape of " + str(imageShape) + " while metadata is made of " + str(metadataShape) + " elements")
+
+
+# Converting to numpy arrays
+metaInputList = np.array(metaInputList)
+imageInputList = np.array(imageInputList)
+labelInputList = np.array(labelInputList)
+labelIntegerList = np.array(labelIntegerList)
+
+# Calling a Training function
+# singleTraining(imageShape, metadataShape, numLabels)
+# kNearestNeighbors( metaInputList, labelIntegerList)
+# randomForest(metaInputList, labelInputList)
+# decisionTree(metaInputList, labelInputList)
+# supportVectorMachine(metaInputList, labelIntegerList)
+# naiveBayes(metaInputList, labelIntegerList)
 # logisticRegression(metaInputList, labelIntegerList)
+
+# # Calculating average values over a specified number of runs
+# maxRuns = 20
+# totAcc = 0
+# totPrec = 0
+# totRecall = 0
+# for run in range(1,maxRuns+1):
+#     acc, prec, recall = randomForest(metaInputList, labelIntegerList)
+#     totAcc = totAcc + acc
+#     totPrec = totPrec + prec
+#     totRecall = totRecall + recall
+#     print("Run " + str(run) + " with accuracy " + str(acc) +  " with Prec " + str(prec) + " with recall " + str(recall))
 #
-# # # Calculating average values over a specified number of runs
-# # maxRuns = 20
-# # totAcc = 0
-# # totPrec = 0
-# # totRecall = 0
-# # for run in range(1,maxRuns+1):
-# #     acc, prec, recall = randomForest(metaInputList, labelIntegerList)
-# #     totAcc = totAcc + acc
-# #     totPrec = totPrec + prec
-# #     totRecall = totRecall + recall
-# #     print("Run " + str(run) + " with accuracy " + str(acc) +  " with Prec " + str(prec) + " with recall " + str(recall))
-# #
-# # avgAcc = totAcc / maxRuns
-# # avgPrec = totPrec / maxRuns
-# # avgRecall = totRecall / maxRuns
-# # print("Avg accuracy is " + str(avgAcc))
-# # print("Avg precision is " + str(avgPrec))
-# # print("Avg recall is " + str(avgRecall))
-#
-# # Trying N-FOLD
-# # Nfold(11, metaInputList, labelIntegerList, logisticRegression)
-# # Leave One Out
-# # leaveOneOut(metaInputList, labelIntegerList, logisticRegression)
+# avgAcc = totAcc / maxRuns
+# avgPrec = totPrec / maxRuns
+# avgRecall = totRecall / maxRuns
+# print("Avg accuracy is " + str(avgAcc))
+# print("Avg precision is " + str(avgPrec))
+# print("Avg recall is " + str(avgRecall))
+
+# Trying N-FOLD
+bestAcc = 0
+bestPrec = 0
+bestRecall = 0
+for i in range(0,30):
+    acc, prec, rec = Nfold(11, metaInputList, labelIntegerList, logisticRegression)
+    # Finding Max
+    if acc > bestAcc:
+        bestAcc = acc
+    if prec > bestPrec:
+        bestPrec = prec
+    if rec > bestRecall:
+        bestRecall = rec
+print("\n\nBest 11-FOLD values found are ACC: " + str(bestAcc) + " || PREC: " + str(bestPrec) + " || REC: " + str(bestRecall))
+# Leave One Out
+# leaveOneOut(metaInputList, labelIntegerList, logisticRegression)

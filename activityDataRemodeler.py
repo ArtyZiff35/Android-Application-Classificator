@@ -58,3 +58,57 @@ class activityDataRemodeler:
             outputActivityList.append(activityObject)
 
         return outputActivityList
+
+
+    @staticmethod
+    def addNewFeatures(activityObjectList):
+
+        # Definitions
+        outputActivityList = []
+        topScreenLimitPercentage = 0.2  # 20% from top (considering 1920 pixels in height)
+        middleScreenLimitPercentage = 0.6  # 60% center of screen
+        originalScreenHeight = 1920     # Supposing a 1920x1080 resolution
+
+        # Calculating the percentage of screen sections
+        topScreenSection = int(topScreenLimitPercentage * originalScreenHeight)
+        middleScreenSection = int(topScreenSection + (middleScreenLimitPercentage * originalScreenHeight))
+
+        # Iterating through all saved activities
+        for activity in activityObjectList:
+            # Iterating through all UI elements of this activity
+            for elementID in activity.allElements:
+                elementAttributes = activity.allElements[elementID]
+                # Finding the element's bounds
+                topHeight = elementAttributes['bounds'][0][1]
+                bottomHeight = elementAttributes['bounds'][1][1]
+                # Understanding in which section of the screen the element is located
+                activity.initializeFocusable()
+                activity.initializeEnabled()
+                activity.initializeImageViews()
+                if bottomHeight <= topScreenSection:
+                    # TOP SECTION
+                    if elementAttributes['focusable'] == 'true':
+                        activity.incrementnumFocusableTop()
+                    if elementAttributes['enabled'] == 'true':
+                        activity.incrementnumEnabledTop()
+                    if elementAttributes['class'] == 'android.widget.ImageView':
+                        activity.incrementnumImageViewsTop()
+                elif bottomHeight <= middleScreenSection:
+                    # MIDDLE SECTION
+                    if elementAttributes['focusable'] == 'true':
+                        activity.incrementnumFocusableMid()
+                    if elementAttributes['enabled'] == 'true':
+                        activity.incrementnumEnabledMid()
+                    if elementAttributes['class'] == 'android.widget.ImageView':
+                        activity.incrementnumImageViewsMid()
+                else:
+                    # BOTTOM SECTION
+                    if elementAttributes['focusable'] == 'true':
+                        activity.incrementnumFocusableBot()
+                    if elementAttributes['enabled'] == 'true':
+                        activity.incrementnumEnabledBot()
+                    if elementAttributes['class'] == 'android.widget.ImageView':
+                        activity.incrementnumImageViewsBot()
+            # Adding the object to the output list
+            outputActivityList.append(activity)
+        return outputActivityList

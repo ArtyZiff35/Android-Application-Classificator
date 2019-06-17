@@ -66,6 +66,48 @@ class activityDataClass:
     def incrementnumLongclickBot(self):
         self.numLongclickBot = self.numLongclickBot + 1
 
+    def initializeFocusable(self):
+        self.numFocusableTop = 0
+        self.numFocusableMid = 0
+        self.numFocusableBot = 0
+
+    def incrementnumFocusableTop(self):
+        self.numFocusableTop = self.numFocusableTop + 1
+
+    def incrementnumFocusableMid(self):
+        self.numFocusableMid = self.numFocusableMid + 1
+
+    def incrementnumFocusableBot(self):
+        self.numFocusableBot = self.numFocusableBot + 1
+
+    def initializeEnabled(self):
+        self.numEnabledTop = 0
+        self.numEnabledMid = 0
+        self.numEnabledBot = 0
+
+    def incrementnumEnabledTop(self):
+        self.numEnabledTop = self.numEnabledTop + 1
+
+    def incrementnumEnabledMid(self):
+        self.numEnabledMid = self.numEnabledMid + 1
+
+    def incrementnumEnabledBot(self):
+        self.numEnabledBot = self.numEnabledBot + 1
+
+    def initializeImageViews(self):
+        self.numImageViewsTop = 0
+        self.numImageViewsMid = 0
+        self.numImageViewsBot = 0
+
+    def incrementnumImageViewsTop(self):
+        self.numImageViewsTop = self.numImageViewsTop + 1
+
+    def incrementnumImageViewsMid(self):
+        self.numImageViewsMid = self.numImageViewsMid + 1
+
+    def incrementnumImageViewsBot(self):
+        self.numImageViewsBot = self.numImageViewsBot + 1
+
     def incrementnumPassword(self):
         self.numPassword = self.numPassword + 1
 
