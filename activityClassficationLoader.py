@@ -1,5 +1,6 @@
 import pickle
 from activityDataClass import activityDataClass
+from activityDataRemodeler import activityDataRemodeler
 import os
 import keras
 import numpy as np
@@ -549,9 +550,9 @@ def logisticRegression(metaInputList, labelInputList, alreadySplit=False, X_trai
     accuracy = accuracy_score(y_test, y_pred, )
     precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
     recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    print("Logistic Regression accuracy is: " + str(accuracy))
-    print("Logistic Regression precision is: " + str(precision))
-    print("Logistic Regression recall is: " + str(recall))
+    # print("Logistic Regression accuracy is: " + str(accuracy))
+    # print("Logistic Regression precision is: " + str(precision))
+    # print("Logistic Regression recall is: " + str(recall))
 
     # # Try different C values for the Regression
     # accuracies = []
@@ -598,7 +599,7 @@ def Nfold(N, metaInputList, labelInputList, MLfunction):
         X_train, X_test = metaInputList[train_index], metaInputList[test_index]
         y_train, y_test = labelInputList[train_index], labelInputList[test_index]
         # Executing the classification function
-        acc, prec, recall = MLfunction(metaInputList, labelIntegerList, alreadySplit=True, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
+        acc, prec, recall = MLfunction(metaInputList, labelInputList, alreadySplit=True, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
         totAcc = totAcc + acc
         totPrec = totPrec + prec
         totRecall = totRecall + recall
@@ -607,9 +608,10 @@ def Nfold(N, metaInputList, labelInputList, MLfunction):
     kfoldAcc = totAcc / N
     kfoldPrec = totPrec / N
     kfoldRecall = totRecall / N
-    print("\n[N-FOLD] Avg accuracy is " + str(kfoldAcc))
-    print("[N-FOLD] Avg precision is " + str(kfoldPrec))
-    print("[N-FOLD]Avg recall is " + str(kfoldRecall))
+    # print("\n[N-FOLD] Avg accuracy is " + str(kfoldAcc))
+    # print("[N-FOLD] Avg precision is " + str(kfoldPrec))
+    # print("[N-FOLD]Avg recall is " + str(kfoldRecall))
+    return kfoldAcc, kfoldPrec, kfoldRecall
 
 
 def leaveOneOut(metaInputList, labelInputList, MLfunction):
@@ -628,7 +630,7 @@ def leaveOneOut(metaInputList, labelInputList, MLfunction):
         X_train, X_test = metaInputList[train_index], metaInputList[test_index]
         y_train, y_test = labelInputList[train_index], labelInputList[test_index]
         # Executing the classification function
-        acc, prec, recall = MLfunction(metaInputList, labelIntegerList, alreadySplit=True, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
+        acc, prec, recall = MLfunction(metaInputList, labelInputList, alreadySplit=True, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
         totAcc = totAcc + acc
         totPrec = totPrec + prec
         totRecall = totRecall + recall
@@ -640,6 +642,8 @@ def leaveOneOut(metaInputList, labelInputList, MLfunction):
     print("\n[LOO] Avg accuracy is " + str(kfoldAcc))
     print("[LOO] Avg precision is " + str(kfoldPrec))
     print("[LOO] Avg recall is " + str(kfoldRecall))
+
+    return kfoldAcc, kfoldPrec, kfoldRecall
 
 
 # This function simply prints the confusion matrix for a given pair of labels
@@ -667,6 +671,114 @@ def printConfusionMatrix(y_test, y_pred):
     plt.show()
 
 
+# This function executes the usual measures trying to modify the screen splitting point
+def measureWithScreenRemodeling(labeledList):
+
+    # Those Arrays contain data for each percentage
+    finalAccList = []
+    finalPrecList = []
+    finalRecallList = []
+
+    # Range to modify new screen splitting
+    for percentage in range(0,101):
+        # Obtain modified list
+        newActivityList = activityDataRemodeler.splitIntoTwoScreenSections(labeledList, percentage)
+
+        # Creating Input Array
+        metaInputList = []  # Contains metadata || INPUT 1
+        labelIntegerList = []  # Labels as integers (not binary)
+        dataCounters = [0] * numLabels
+        for activity in newActivityList:
+            # Concatenating all metadata for the activity
+            tmpArray = []
+            tmpArray.append(activity.numClickableTop)
+            tmpArray.append(activity.numClickableBot)
+
+            tmpArray.append(activity.numSwipeableTop)
+            tmpArray.append(activity.numSwipeableBot)
+
+            tmpArray.append(activity.numEdittextTop)
+            tmpArray.append(activity.numEdittextBot)
+
+            tmpArray.append(activity.numLongclickTop)
+            tmpArray.append(activity.numLongclickBot)
+
+            tmpArray.append(activity.numPassword)
+            tmpArray.append(activity.numCheckable)
+            tmpArray.append(activity.presentDrawer)
+            tmpArray.append(activity.numTotElements)
+
+            metaInputList.append(tmpArray)
+
+            # Concatenating the label
+            labelIntegerList.append(activity.labelNumeric)
+
+            # Incrementing the counter for that specific label
+            dataCounters[activity.labelNumeric - 1] = dataCounters[activity.labelNumeric - 1] + 1
+        print("Data was successfully parsed!\nLabels found: " + str(dataCounters))
+
+        # Converting to numpy arrays
+        metaInputList = np.array(metaInputList)
+        labelIntegerList = np.array(labelIntegerList)
+
+        # Executing an ALGORITHM for X times
+        bestAcc = 0
+        bestPrec = 0
+        bestRecall = 0
+        ### ------------------------------------------- ###
+        for trialNum in range(0,3):
+
+            acc, prec, recall = leaveOneOut(metaInputList, labelIntegerList, randomForest)
+
+            # Finding Max
+            if acc > bestAcc:
+                bestAcc = acc
+            if prec > bestPrec:
+                bestPrec = prec
+            if recall > bestRecall:
+                bestRecall = recall
+        ### ------------------------------------------- ###
+        # Saving best values to final arrays
+        print("Completed " + str(percentage) + "% with Acc: " + str(bestAcc) + " and Prec: " + str(bestPrec) + " and Recall: " + str(bestRecall))
+        finalAccList.append(bestAcc)
+        finalPrecList.append(bestPrec)
+        finalRecallList.append(bestRecall)
+
+    # Plotting final Results
+    series = pd.Series(finalAccList)
+    rollingMean = series.rolling(15).mean()
+    plt.plot(finalAccList)
+    plt.plot(rollingMean)
+    plt.title('Accuracy according to Screen Splitting using RANDOM FOREST')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Percentage of screen from the top used as splitting point for features')
+    plt.legend(['Accuracy of 11-Fold', 'Rolling Mean over 20 datapoints'], loc='upper right')
+    plt.show()
+
+    series = pd.Series(finalPrecList)
+    rollingMean = series.rolling(15).mean()
+    plt.plot(finalPrecList)
+    plt.plot(rollingMean)
+    plt.title('Precision according to Screen Splitting using RANDOM FOREST')
+    plt.ylabel('Precision')
+    plt.xlabel('Percentage of screen from the top used as splitting point for features')
+    plt.legend(['Precision of 11-Fold', 'Rolling Mean over 20 datapoints'], loc='upper right')
+    plt.show()
+
+    series = pd.Series(finalRecallList)
+    rollingMean = series.rolling(15).mean()
+    plt.plot(finalRecallList)
+    plt.plot(rollingMean)
+    plt.title('Recall according to Screen Splitting using RANDOM FOREST')
+    plt.ylabel('Recall')
+    plt.xlabel('Percentage of screen from the top used as splitting point for features')
+    plt.legend(['Recall of 11-Fold', 'Rolling Mean over 20 datapoints'], loc='upper right')
+    plt.show()
+
+
+    print("\n\nFinal Average Accuracy: " + str(np.average(finalAccList)))
+    print("Final Average Precision: " + str(np.average(finalPrecList)))
+    print("Final Average Recall: " + str(np.average(finalRecallList)))
 
 ##############################################################
 
@@ -683,100 +795,102 @@ else:
     print("Requested file does not exist")
     exit()
 
-# PREPARING DATA TO BE IN THE CORRECT FORMAT FOR THE NN
-# Creating Input Array
-metaInputList = []      # Contains metadata || INPUT 1
-imageInputList = []     # Contains screenshots || INPUT 2
-labelInputList = []     # Contains labels || LABEL
-labelIntegerList = []   # Labels as integers (not binary)
-dataCounters = [0] * numLabels
-for activity in labeledList:
-    # Concatenating all metadata for the activity
-    tmpArray = []
-    tmpArray.append(activity.numClickableTop)
-    tmpArray.append(activity.numClickableMid)
-    tmpArray.append(activity.numClickableBot)
-    # tmpArray.append( int(activity.numClickableTop + activity.numClickableMid + activity.numClickableBot) ) # Adding the sum too
+measureWithScreenRemodeling(labeledList)
 
-    tmpArray.append(activity.numSwipeableTop)
-    tmpArray.append(activity.numSwipeableMid)
-    tmpArray.append(activity.numSwipeableBot)
-    # tmpArray.append(int(activity.numSwipeableTop + activity.numSwipeableMid + activity.numSwipeableBot) ) # Adding the sum too
-
-    tmpArray.append(activity.numEdittextTop)
-    tmpArray.append(activity.numEdittextMid)
-    tmpArray.append(activity.numEdittextBot)
-    # tmpArray.append(int(activity.numEdittextTop + activity.numEdittextMid + activity.numEdittextBot) ) # Adding the sum too
-
-    tmpArray.append(activity.numLongclickTop)
-    tmpArray.append(activity.numLongclickMid)
-    tmpArray.append(activity.numLongclickBot)
-    # tmpArray.append(int(activity.numLongclickTop + activity.numLongclickMid + activity.numLongclickBot) ) # Adding the sum too
-
-    tmpArray.append(activity.numPassword)
-    tmpArray.append(activity.numCheckable)
-    tmpArray.append(activity.presentDrawer)
-    tmpArray.append(activity.numTotElements)
-
-    metaInputList.append(tmpArray)
-
-    # Concatenating the screenshot
-    activity.screenshot = activity.screenshot[...,np.newaxis]   # Adding third dimension to indicate to Keras that we are using Grayscale images
-    imageInputList.append(activity.screenshot)
-
-    # Concatenating the label
-    label = [0 for i in range(0, numLabels)]        # Transforming the label into the binary '00001000' format starting from decimal
-    label[activity.labelNumeric-1] = 1
-    labelInputList.append(label)
-    labelIntegerList.append(activity.labelNumeric)
-
-    # Incrementing the counter for that specific label
-    dataCounters[activity.labelNumeric-1] = dataCounters[activity.labelNumeric-1] + 1
-
-print("Data was successfully parsed!\nLabels found: " + str(dataCounters))
-
-
-# Preparing the Neural Network model
-imageShape = imageInputList[-1].shape
-metadataShape = len(metaInputList[-1])
-print("Images have a shape of " + str(imageShape) + " while metadata is made of " + str(metadataShape) + " elements")
-
-
-# Converting to numpy arrays
-metaInputList = np.array(metaInputList)
-imageInputList = np.array(imageInputList)
-labelInputList = np.array(labelInputList)
-labelIntegerList = np.array(labelIntegerList)
-
-# Calling a Training function
-# singleTraining(imageShape, metadataShape, numLabels)
-# kNearestNeighbors( metaInputList, labelIntegerList)
-# randomForest(metaInputList, labelInputList)
-# decisionTree(metaInputList, labelInputList)
-# supportVectorMachine(metaInputList, labelIntegerList)
-# naiveBayes(metaInputList, labelIntegerList)
-logisticRegression(metaInputList, labelIntegerList)
-
-# # Calculating average values over a specified number of runs
-# maxRuns = 20
-# totAcc = 0
-# totPrec = 0
-# totRecall = 0
-# for run in range(1,maxRuns+1):
-#     acc, prec, recall = randomForest(metaInputList, labelIntegerList)
-#     totAcc = totAcc + acc
-#     totPrec = totPrec + prec
-#     totRecall = totRecall + recall
-#     print("Run " + str(run) + " with accuracy " + str(acc) +  " with Prec " + str(prec) + " with recall " + str(recall))
+# # PREPARING DATA TO BE IN THE CORRECT FORMAT FOR THE NN
+# # Creating Input Array
+# metaInputList = []      # Contains metadata || INPUT 1
+# imageInputList = []     # Contains screenshots || INPUT 2
+# labelInputList = []     # Contains labels || LABEL
+# labelIntegerList = []   # Labels as integers (not binary)
+# dataCounters = [0] * numLabels
+# for activity in labeledList:
+#     # Concatenating all metadata for the activity
+#     tmpArray = []
+#     tmpArray.append(activity.numClickableTop)
+#     tmpArray.append(activity.numClickableMid)
+#     tmpArray.append(activity.numClickableBot)
+#     # tmpArray.append( int(activity.numClickableTop + activity.numClickableMid + activity.numClickableBot) ) # Adding the sum too
 #
-# avgAcc = totAcc / maxRuns
-# avgPrec = totPrec / maxRuns
-# avgRecall = totRecall / maxRuns
-# print("Avg accuracy is " + str(avgAcc))
-# print("Avg precision is " + str(avgPrec))
-# print("Avg recall is " + str(avgRecall))
-
-# Trying N-FOLD
-# Nfold(11, metaInputList, labelIntegerList, logisticRegression)
-# Leave One Out
-# leaveOneOut(metaInputList, labelIntegerList, logisticRegression)
+#     tmpArray.append(activity.numSwipeableTop)
+#     tmpArray.append(activity.numSwipeableMid)
+#     tmpArray.append(activity.numSwipeableBot)
+#     # tmpArray.append(int(activity.numSwipeableTop + activity.numSwipeableMid + activity.numSwipeableBot) ) # Adding the sum too
+#
+#     tmpArray.append(activity.numEdittextTop)
+#     tmpArray.append(activity.numEdittextMid)
+#     tmpArray.append(activity.numEdittextBot)
+#     # tmpArray.append(int(activity.numEdittextTop + activity.numEdittextMid + activity.numEdittextBot) ) # Adding the sum too
+#
+#     tmpArray.append(activity.numLongclickTop)
+#     tmpArray.append(activity.numLongclickMid)
+#     tmpArray.append(activity.numLongclickBot)
+#     # tmpArray.append(int(activity.numLongclickTop + activity.numLongclickMid + activity.numLongclickBot) ) # Adding the sum too
+#
+#     tmpArray.append(activity.numPassword)
+#     tmpArray.append(activity.numCheckable)
+#     tmpArray.append(activity.presentDrawer)
+#     tmpArray.append(activity.numTotElements)
+#
+#     metaInputList.append(tmpArray)
+#
+#     # Concatenating the screenshot
+#     activity.screenshot = activity.screenshot[...,np.newaxis]   # Adding third dimension to indicate to Keras that we are using Grayscale images
+#     imageInputList.append(activity.screenshot)
+#
+#     # Concatenating the label
+#     label = [0 for i in range(0, numLabels)]        # Transforming the label into the binary '00001000' format starting from decimal
+#     label[activity.labelNumeric-1] = 1
+#     labelInputList.append(label)
+#     labelIntegerList.append(activity.labelNumeric)
+#
+#     # Incrementing the counter for that specific label
+#     dataCounters[activity.labelNumeric-1] = dataCounters[activity.labelNumeric-1] + 1
+#
+# print("Data was successfully parsed!\nLabels found: " + str(dataCounters))
+#
+#
+# # Preparing the Neural Network model
+# imageShape = imageInputList[-1].shape
+# metadataShape = len(metaInputList[-1])
+# print("Images have a shape of " + str(imageShape) + " while metadata is made of " + str(metadataShape) + " elements")
+#
+#
+# # Converting to numpy arrays
+# metaInputList = np.array(metaInputList)
+# imageInputList = np.array(imageInputList)
+# labelInputList = np.array(labelInputList)
+# labelIntegerList = np.array(labelIntegerList)
+#
+# # Calling a Training function
+# # singleTraining(imageShape, metadataShape, numLabels)
+# # kNearestNeighbors( metaInputList, labelIntegerList)
+# # randomForest(metaInputList, labelInputList)
+# # decisionTree(metaInputList, labelInputList)
+# # supportVectorMachine(metaInputList, labelIntegerList)
+# # naiveBayes(metaInputList, labelIntegerList)
+# logisticRegression(metaInputList, labelIntegerList)
+#
+# # # Calculating average values over a specified number of runs
+# # maxRuns = 20
+# # totAcc = 0
+# # totPrec = 0
+# # totRecall = 0
+# # for run in range(1,maxRuns+1):
+# #     acc, prec, recall = randomForest(metaInputList, labelIntegerList)
+# #     totAcc = totAcc + acc
+# #     totPrec = totPrec + prec
+# #     totRecall = totRecall + recall
+# #     print("Run " + str(run) + " with accuracy " + str(acc) +  " with Prec " + str(prec) + " with recall " + str(recall))
+# #
+# # avgAcc = totAcc / maxRuns
+# # avgPrec = totPrec / maxRuns
+# # avgRecall = totRecall / maxRuns
+# # print("Avg accuracy is " + str(avgAcc))
+# # print("Avg precision is " + str(avgPrec))
+# # print("Avg recall is " + str(avgRecall))
+#
+# # Trying N-FOLD
+# # Nfold(11, metaInputList, labelIntegerList, logisticRegression)
+# # Leave One Out
+# # leaveOneOut(metaInputList, labelIntegerList, logisticRegression)
