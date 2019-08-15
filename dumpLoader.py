@@ -33,7 +33,7 @@ def setupNNmodel(inputShape, outputShape):
     # Input - Layer
     model.add(Dense(inputShape, activation="relu", input_shape=(inputShape,)))
     # Hidden - Layers
-    # model.add(Dropout(0.5, noise_shape=None, seed=None))
+    model.add(Dropout(0.5, noise_shape=None, seed=None))
     model.add(Dense(1000, activation="sigmoid"))
     # model.add(Dropout(0.5, noise_shape=None, seed=None))
     # model.add(Dense(100, activation="sigmoid"))
