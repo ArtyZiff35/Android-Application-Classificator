@@ -13,11 +13,19 @@ from keras import optimizers
 import random
 from matplotlib import pyplot as plt
 import keras_metrics
+from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import classification_report
+
 
 
 
 # Constants
 DUMP_DIRECTORY_PATH = "./dumpFiles"
+
+# Definition of the SWISH activation function
+def swish(x):
+    return K.sigmoid(x) * x
 
 # Setting up a Keras model of: 4 Conv and Pool + Flat + 5 Dense
 def setupNNmodel(inputShape, outputShape):
@@ -25,22 +33,76 @@ def setupNNmodel(inputShape, outputShape):
     # Input - Layer
     model.add(Dense(inputShape, activation="relu", input_shape=(inputShape,)))
     # Hidden - Layers
-    # model.add(Dropout(0.20, noise_shape=None, seed=None))
-    model.add(Dense(1000, activation="relu"))
-    # model.add(Dropout(0.1, noise_shape=None, seed=None))
-    # model.add(Dense(100, activation="relu"))
+    # model.add(Dropout(0.5, noise_shape=None, seed=None))
+    model.add(Dense(1000, activation="sigmoid"))
+    # model.add(Dropout(0.5, noise_shape=None, seed=None))
+    # model.add(Dense(100, activation="sigmoid"))
     # Output- Layer
-    model.add(Dense(outputShape, activation="softmax"))        # Was using sigmoid, but it is only between 0 and 1
+    model.add(Dense(outputShape, activation="softmax"))
     model.summary()
 
     model.compile(
         loss='kullback_leibler_divergence',
-        optimizer=optimizers.SGD(lr=0.01, momentum=0.9),
+        optimizer=optimizers.Adam(lr=0.001),
         metrics=["accuracy",keras_metrics.precision(), keras_metrics.recall()]
     )
 
     return model
 
+
+# This method measures the performance of the NN using K-Fold
+def crossValidation(X, Y, nFold):
+
+    # Setting up a label encoder, necessary to convert 2d label to 1d
+    label_encoder = LabelEncoder()
+    Y_1D = []
+    for i in range(0, len(Y)):
+        Y_1D.append(np.argmax(Y[i][:]))
+    # Setting up the K-Fold splitting
+    seed = 7
+    np.random.seed(seed)
+    kfold = StratifiedKFold(n_splits=nFold, shuffle=True, random_state=seed)
+    # Resetting the weights of the model
+    initial_weights = NNmodel.get_weights()
+    # Actually splitting into training and testing data
+    accList = []
+    precList = []
+    recList = []
+    iteration = 0
+    for train, test in kfold.split(X, Y_1D):
+
+        print("\n[[[[WE ARE IN ITERATION: " + str(iteration+1) + " ]]]]\n")
+        iteration = iteration + 1
+
+        # Training the model
+        results = NNmodel.fit(
+            X[train], Y[train],
+            verbose=1,
+            epochs=30,
+            batch_size=128,
+            shuffle=True,
+        )
+        # evaluate the model
+        scores = NNmodel.evaluate(X[test], Y[test], verbose=0)
+        print("%s: %.2f%%" % (NNmodel.metrics_names[1], scores[1] * 100))
+        print("%s: %.2f%%" % (NNmodel.metrics_names[2], scores[2] * 100))
+        print("%s: %.2f%%" % (NNmodel.metrics_names[3], scores[3] * 100))
+        accList.append(scores[1] * 100)
+        precList.append(scores[2] * 100)
+        recList.append(scores[3] * 100)
+        # Setting back the weights
+        NNmodel.set_weights(initial_weights)
+
+    # Calculating final results
+    mean = np.mean(accList)
+    std = np.std(accList)
+    print("KFOLD ACCURACY Results: " + str(mean) + "% with std(+/- " + str(std) + "%)")
+    mean = np.mean(precList)
+    std = np.std(precList)
+    print("KFOLD PRECISION Results: " + str(mean) + "% with std(+/- " + str(std) + "%)")
+    mean = np.mean(recList)
+    std = np.std(recList)
+    print("KFOLD RECALL Results: " + str(mean) + "% with std(+/- " + str(std) + "%)")
 
 
 # Data structures
@@ -54,7 +116,7 @@ classProbability = {}       # ClassName : ClassProbability
 classNameToIndex = {}       # ClassName : ClassIndex
 
 totAppCounter = 0           # Total number of apps
-validationPercentage = 0.09  # Percentage of data to be used as validation
+validationPercentage = 0.08  # Percentage of data to be used as validation
 
 
 
@@ -156,39 +218,43 @@ Y = np.array(Y)
 # val_X = np.array(val_X)
 # val_Y = np.array(val_Y)
 
-# Training the model
-results = NNmodel.fit(
-                        X, Y,
-                        verbose=1,
-                        epochs=100,
-                        batch_size=32,
-                        shuffle=True,
-                  #      validation_data = (val_X, val_Y),
-                        validation_split = validationPercentage
-                        )
+# K-FOLD
+crossValidation(X, Y, 10)
 
-# Plot metrics
-#  "Accuracy"
-plt.plot(results.history['acc'])
-plt.plot(results.history['val_acc'])
-plt.title('Model accuracy')
-plt.ylabel('Accuracy')
-plt.xlabel('Epoch')
-plt.legend(['Training set', 'Validation set'], loc='upper left')
-plt.show()
-# "Loss"
-plt.plot(results.history['loss'])
-plt.plot(results.history['val_loss'])
-plt.title('Model loss')
-plt.ylabel('Loss')
-plt.xlabel('Epoch')
-plt.legend(['Training set', 'Validation set'], loc='upper left')
-plt.show()
 
-# Printing the validation results
-print("\n\nAverage Validation accuracy: " + str(np.mean(results.history["val_acc"])))
-# Finding best validation accuracy
-print("Best validation accuracy: " + str(max(results.history['val_acc'])))
-
-print("Average validation Precision and Recall: " + str(np.mean(results.history["val_precision"])) + " " + str(np.mean(results.history["val_recall"])))
-print("Best validation Precision and Recall: " + str(max(results.history["val_precision"])) + " " + str(max(results.history["val_recall"])))
+# # Training the model
+# results = NNmodel.fit(
+#                         X, Y,
+#                         verbose=1,
+#                         epochs=30,
+#                         batch_size=128,
+#                         shuffle=True,
+#                   #      validation_data = (val_X, val_Y),
+#                         validation_split = validationPercentage
+#                         )
+#
+# # Plot metrics
+# #  "Accuracy"
+# plt.plot(results.history['acc'])
+# plt.plot(results.history['val_acc'])
+# plt.title('Model accuracy')
+# plt.ylabel('Accuracy')
+# plt.xlabel('Epoch')
+# plt.legend(['Training set', 'Validation set'], loc='upper left')
+# plt.show()
+# # "Loss"
+# plt.plot(results.history['loss'])
+# plt.plot(results.history['val_loss'])
+# plt.title('Model loss')
+# plt.ylabel('Loss')
+# plt.xlabel('Epoch')
+# plt.legend(['Training set', 'Validation set'], loc='upper left')
+# plt.show()
+#
+# # Printing the validation results
+# print("\n\nAverage Validation accuracy: " + str(np.mean(results.history["val_acc"])))
+# # Finding best validation accuracy
+# print("Best validation accuracy: " + str(max(results.history['val_acc'])))
+#
+# print("Average validation Precision and Recall: " + str(np.mean(results.history["val_precision"])) + " " + str(np.mean(results.history["val_recall"])))
+# print("Best validation Precision and Recall: " + str(max(results.history["val_precision"])) + " " + str(max(results.history["val_recall"])))

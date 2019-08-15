@@ -12,7 +12,7 @@ from keras.models import load_model
 from tensorflow.python.client import device_lib
 from keras import backend as K
 from keras import optimizers
-from keras.models import Model
+from keras.models import Model, load_model, save_model
 import tensorflow as tf
 import keras_metrics
 from matplotlib import pyplot as plt
@@ -26,6 +26,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier, plot_tree, export_graphviz
 from sklearn import tree
 from sklearn import svm
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import precision_recall_fscore_support
 import pydotplus
 from IPython.display import Image
 import graphviz
@@ -47,6 +49,8 @@ import pandas as pd
 storePath = "./activityClassificationData/labeledActivities.dat"
 numLabels = 8
 validationPercentage = 0.09
+classPrecisionList = []
+classRecallList = []
 
 ############### NN ############################
 
@@ -579,10 +583,61 @@ def logisticRegression(metaInputList, labelInputList, alreadySplit=False, X_trai
     # plt.legend(['Accuracy'], loc='upper right')
     # plt.show()
 
+    # # Saving model to file
+    # filehandler = open('./savedKerasModels/my_model.dat', 'wb')
+    # pickle.dump(logisticRegr, filehandler, protocol=2)
+    # filehandler.close()
+    # input()
+    # filehandler = open('./savedKerasModels/my_model.dat','rb')
+    # logisticRegr = pickle.load(filehandler)
+    # y_pred = logisticRegr.predict(X_test)
+    # # Calculating metrics
+    # accuracy = accuracy_score(y_test, y_pred, )
+    # precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # print("CIAAO : " + str(accuracy))
+    # input()
 
     # Returning the metrics as results
-    return accuracy, precision, recall
+    print("Final Accuracy " + str(accuracy))
+    return accuracy, precision, recall, y_pred
 
+def classMetricsCalculator(confusionMat):
+    # Getting the confusion Matrix
+    print("\n")
+    print(confusionMat)
+    print("\n")
+    # Calculating metrics for each class separately
+    for cat in range(0,len(confusionMat)):
+        # Retrieving TP, FP, FN
+        truePos = confusionMat[cat,cat]
+        falsePos = sumColumn(confusionMat, cat) - confusionMat[cat,cat]
+        falseNeg = sumRow(confusionMat, cat) - confusionMat[cat,cat]
+        # Calculating actual metrics
+        precision = truePos/(truePos+falsePos)
+        recall = truePos/(truePos+falseNeg)
+        print("CLASS " + str(cat) + " has Prec " + str(precision) + " and Recall " + str(recall))
+
+
+def sumColumn(m, column):
+    total = 0
+    for row in range(len(m)):
+        total += m[row][column]
+    return total
+
+def sumRow(m, row):
+    total = 0
+    for col in range(len(m)):
+        total += m[row][col]
+    return total
+
+def sumMatrices(mat1, mat2):
+    # iterate through rows
+    for i in range(len(mat1)):
+        # iterate through columns
+        for j in range(len(mat1)):
+            mat1[i][j] = mat1[i][j] + mat2[i][j]
+    return mat1
 
 def Nfold(N, metaInputList, labelInputList, MLfunction):
     # Prepare the range of indexes for Cross Validation
@@ -592,6 +647,7 @@ def Nfold(N, metaInputList, labelInputList, MLfunction):
     totAcc = 0
     totPrec = 0
     totRecall = 0
+    totConfMatrix = None
     for train_index, test_index in kfold.split(metaInputList):
         # Increasing iteration counter
         counter = counter + 1
@@ -600,7 +656,14 @@ def Nfold(N, metaInputList, labelInputList, MLfunction):
         X_train, X_test = metaInputList[train_index], metaInputList[test_index]
         y_train, y_test = labelInputList[train_index], labelInputList[test_index]
         # Executing the classification function
-        acc, prec, recall = MLfunction(metaInputList, labelInputList, alreadySplit=True, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
+        acc, prec, recall, y_pred = MLfunction(metaInputList, labelInputList, alreadySplit=True, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
+        # Calculating the confusion matrix
+        confusionMat = confusion_matrix(y_test, y_pred, labels=[1,2,3,4,5,6,7,8])
+        if totConfMatrix is None:
+            totConfMatrix = confusionMat
+        else:
+            totConfMatrix = sumMatrices(totConfMatrix, confusionMat)
+        # Calculating general metrics
         totAcc = totAcc + acc
         totPrec = totPrec + prec
         totRecall = totRecall + recall
@@ -612,7 +675,8 @@ def Nfold(N, metaInputList, labelInputList, MLfunction):
     print("\n[N-FOLD] Avg accuracy is " + str(kfoldAcc))
     print("[N-FOLD] Avg precision is " + str(kfoldPrec))
     print("[N-FOLD]Avg recall is " + str(kfoldRecall))
-    return kfoldAcc, kfoldPrec, kfoldRecall
+
+    return kfoldAcc, kfoldPrec, kfoldRecall, totConfMatrix
 
 
 def leaveOneOut(metaInputList, labelInputList, MLfunction):
@@ -648,10 +712,10 @@ def leaveOneOut(metaInputList, labelInputList, MLfunction):
 
 
 # This function simply prints the confusion matrix for a given pair of labels
-def printConfusionMatrix(y_test, y_pred):
+def printConfusionMatrix(confMat):
 
     # Generating the confusion matrix
-    confMat = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1), labels=[1,2,3,4,5,6,7,8])
+    # confMat = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(), labels=[1,2,3,4,5,6,7,8])
     # Preparing the class names
     class_names = ["ToDo", "Ad", "Login", "List", "Portal", "Browser", "Map", "Messages"]
 
@@ -882,10 +946,19 @@ imageInputList = np.array(imageInputList)
 labelInputList = np.array(labelInputList)
 labelIntegerList = np.array(labelIntegerList)
 
+
+# Writing arrays to file
+filehandler = open('./savedKerasModels/X.dat', 'wb')
+pickle.dump(metaInputList, filehandler, protocol=2)
+filehandler.close()
+filehandler = open('./savedKerasModels/Y.dat', 'wb')
+pickle.dump(labelIntegerList, filehandler, protocol=2)
+filehandler.close()
+
 # Calling a Training function
 # singleTraining(imageShape, metadataShape, numLabels)
 # kNearestNeighbors( metaInputList, labelIntegerList)
-randomForest(metaInputList, labelInputList)
+# randomForest(metaInputList, labelInputList)
 # decisionTree(metaInputList, labelInputList)
 # supportVectorMachine(metaInputList, labelIntegerList)
 # naiveBayes(metaInputList, labelIntegerList)
@@ -929,26 +1002,34 @@ randomForest(metaInputList, labelInputList)
 
 
 # Trying N-FOLD
-# bestAcc = 0
-# bestPrec = 0
-# bestRecall = 0
-# for i in range(0,30):
-#     acc, prec, rec = Nfold(11, metaInputList, labelIntegerList, supportVectorMachine)
-#     # Finding Max
-#     if acc > bestAcc:
-#         bestAcc = acc
-#     if prec > bestPrec:
-#         bestPrec = prec
-#     if rec > bestRecall:
-#         bestRecall = rec
-# print("\n\n---> Best 11-FOLD values found are ACC: " + str(bestAcc) + " || PREC: " + str(bestPrec) + " || REC: " + str(bestRecall))
+bestAcc = 0
+bestPrec = 0
+bestRecall = 0
+totConfMatrix = None
+for i in range(0,1):
+    acc, prec, rec, finalConfusionMatrix = Nfold(11, metaInputList, labelIntegerList, logisticRegression)
+    if totConfMatrix is None:
+        totConfMatrix = finalConfusionMatrix
+    else:
+        totConfMatrix = sumMatrices(totConfMatrix, finalConfusionMatrix)
+    # Finding Max
+    if acc > bestAcc:
+        bestAcc = acc
+    if prec > bestPrec:
+        bestPrec = prec
+    if rec > bestRecall:
+        bestRecall = rec
+print("\n\n---> Best 11-FOLD values found are ACC: " + str(bestAcc) + " || PREC: " + str(bestPrec) + " || REC: " + str(bestRecall))
+# Calculating per-class metrics
+classMetricsCalculator(totConfMatrix)
+printConfusionMatrix(totConfMatrix)
 
-# Leave One Out
+# # Leave One Out
 # bestAcc = 0
 # bestPrec = 0
 # bestRecall = 0
-# for i in range(0,10):
-#     acc, prec, rec = leaveOneOut(metaInputList, labelIntegerList, randomForest)
+# for i in range(0,11):
+#     acc, prec, rec = leaveOneOut(metaInputList, labelIntegerList, logisticRegression)
 #     # Finding Max
 #     if acc > bestAcc:
 #         bestAcc = acc

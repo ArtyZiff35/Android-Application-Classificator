@@ -16,7 +16,7 @@ apiListOutput = open(FINAL_API_METHODS_LIST,'w')
 with open(CLASSES_FILE_PATH, 'w') as fileOutput:
     subprocess.call(['C:\Program Files\Java\jdk1.8.0_181"\"bin\jar.exe', '-tf', ANDROID_JAR_PATH], shell=True, stdout=fileOutput)
 
-# Now, for each class, find its methods
+# Now, for each class
 with open(CLASSES_FILE_PATH, 'r') as fileInput:
     line = fileInput.readline()
     while line:
