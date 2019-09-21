@@ -2,7 +2,7 @@
 
 class appObject:
 
-    def __init__(self, methodsArray, permissionsArray, stringsArray, category):
+    def __init__(self, methodsArray, permissionsArray, stringsArray, category, appName=""):
         # Binary array containing 1/0 for presence of a specific api method call in the app
         self.binaryMethodsArray = methodsArray
         # Binary array containing 1/0 for presence of specific permission in the manifest of the app
@@ -11,6 +11,8 @@ class appObject:
         self.stringsArray = stringsArray
         # This is the category of this app
         self.category = category
+        # The name of the app
+        self.appName = appName
 
     def getMehtodsArray(self):
         return self.binaryMethodsArray

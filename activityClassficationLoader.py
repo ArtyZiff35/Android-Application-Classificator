@@ -1,4 +1,7 @@
 import pickle
+
+from matplotlib.ticker import FormatStrFormatter
+
 from activityDataClass import activityDataClass
 from activityDataRemodeler import activityDataRemodeler
 import os
@@ -21,10 +24,11 @@ from sklearn.model_selection import train_test_split, LeaveOneOut
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score,precision_score, recall_score
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score,precision_score, recall_score, f1_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier, plot_tree, export_graphviz
 from sklearn import tree
+from sklearn.metrics import precision_recall_fscore_support as score
 from sklearn import svm
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_fscore_support
@@ -32,11 +36,11 @@ import pydotplus
 from IPython.display import Image
 import graphviz
 from sklearn import tree
-from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn.model_selection import KFold
 import seaborn as sns
 import pandas as pd
-
+from sklearn.model_selection import GridSearchCV
 
 
 
@@ -51,6 +55,8 @@ numLabels = 8
 validationPercentage = 0.09
 classPrecisionList = []
 classRecallList = []
+classF1List = []
+confMatrixList = []
 
 ############### NN ############################
 
@@ -63,36 +69,50 @@ def setupImageConvModel(inputShape):
 
     # Convolution Layer 1
     convLayer = Conv2D(filters=12,
-                       kernel_size=(3, 3),
-                       strides=(1, 1),
+                       kernel_size=(11, 11),
+                       strides=(4, 4),
                        activation='relu',
                        input_shape=inputShape)
     model.add(convLayer)
     # Pooling Layer 1
-    poolingLayer = MaxPooling2D(pool_size=(2, 2),
+    poolingLayer = MaxPooling2D(pool_size=(3, 3),
                                 strides=(2, 2))
     model.add(poolingLayer)
 
     # Convolution Layer 2
     convLayer = Conv2D(filters=24,
-                       kernel_size=(2, 2),
+                       kernel_size=(5, 5),
+                       strides=(1, 1),
                        activation='relu')
     model.add(convLayer)
     # Pooling Layer 2
-    poolingLayer = MaxPooling2D(pool_size=(2, 2),
+    poolingLayer = MaxPooling2D(pool_size=(3, 3),
                                 strides=(2, 2))
     model.add(poolingLayer)
 
-    # Convolution Layer 3
+    # Convolution Layer 3,4,5
     convLayer = Conv2D(filters=48,
                        kernel_size=(3, 3),
+                       strides=(1, 1),
                        activation='elu')
     model.add(convLayer)
+    convLayer = Conv2D(filters=24,
+                       kernel_size=(3, 3),
+                       strides=(1, 1),
+                       activation='relu')
+    model.add(convLayer)
+    convLayer = Conv2D(filters=24,
+                       kernel_size=(3, 3),
+                       strides=(1, 1),
+                       activation='relu')
+    model.add(convLayer)
     # Pooling Layer 3
-    poolingLayer = MaxPooling2D(pool_size=(2, 2),
+    poolingLayer = MaxPooling2D(pool_size=(3, 3),
                                 strides=(2, 2))
     model.add(poolingLayer)
 
+    # Dense Layer
+    model.add(Dense(100, activation="relu"))
 
     # Flatten
     model.add(Flatten())
@@ -166,7 +186,7 @@ def singleTraining(imageShape, metadataShape, numLabels):
         y=labelInputList,
         verbose=1,
         epochs=200,
-        batch_size=12,
+        batch_size=24,
         shuffle=True,
         validation_split=validationPercentage
     )
@@ -253,15 +273,32 @@ def kNearestNeighbors(metaInputList, labelInputList, alreadySplit=False, X_train
     # bestAccuracy = max(accuracies)
     # print("\nHighest accuracy that can be reached by the model is: " + str(bestAccuracy))
 
-    ##---------------------------##
-    knn = KNeighborsClassifier(n_neighbors=5)  # n_neighbors is the value of K
-    knn.fit(X_train, y_train)
-    # Predict labels for all the testing data
-    pred_i = knn.predict(X_test)
-    # Calculate the accuracy value for this K
-    accuracy = accuracy_score(y_test, pred_i)
-    precision = precision_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
-    recall = recall_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
+    # ##---------------------------##
+    # knn = KNeighborsClassifier(n_neighbors=5, weights='distance')  # n_neighbors is the value of K
+    # knn.fit(X_train, y_train)
+    # # Predict labels for all the testing data
+    # pred_i = knn.predict(X_test)
+    # # Calculate the accuracy value for this K
+    # accuracy = accuracy_score(y_test, pred_i)
+    # precision = precision_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
+    # recall = recall_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
+
+    # Grid Search
+    knnModel = KNeighborsClassifier()
+    n_neighbors = [x for x in range(1,40)]
+    metric = ['euclidean', 'hamming', 'canberra', 'manhattan']
+    gridValues = {'n_neighbors': n_neighbors, 'metric': metric, 'weights': ['distance']}
+    gridModel = GridSearchCV(knnModel, param_grid=gridValues, scoring='accuracy', cv=5)
+    gridModel.fit(X_train, y_train)
+    print('---> Best params after inner cross validation: ' + str(gridModel.best_params_))
+    # Predicting the output
+    y_pred = gridModel.predict(X_test)
+    # Calculating metrics
+    accuracy = accuracy_score(y_test, y_pred, )
+    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # Plotting metrics
+    # plot_grid_search(gridModel.cv_results_, n_neighbors, metric, 'Num Neighbors', 'Distance Metric')
 
     return accuracy, precision, recall
 
@@ -295,19 +332,37 @@ def randomForest(metaInputList, labelInputList, alreadySplit=False, X_train=None
     # plt.xlabel('n_estimators')
     # plt.legend(['Training set', 'Testing set'], loc='upper right')
     # plt.show()
-    #
+
 
     ##---------------------------##
-    forestModel = RandomForestClassifier(n_estimators=21)  # n_estimators is the number of trees
+    forestModel = RandomForestClassifier(n_estimators=25)  # n_estimators is the number of trees
     # Training the model
     forestModel.fit(X_train, y_train)
-
     # Predict labels for all the testing data
     pred_i = forestModel.predict(X_test)
     # Calculate the accuracy value for this K
     accuracy = accuracy_score(y_test, pred_i)
     precision = precision_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
     recall = recall_score(y_test, pred_i, average='weighted', labels=np.unique(pred_i))
+
+    # # Grid Search
+    # forestModel = RandomForestClassifier()
+    # num_estimators = [x for x in range(2, 40, 2)]
+    # max_features = [2,5,8,12,16]
+    # min_samples_leaf = [2,4,6,8,10]
+    # gridValues = {'n_estimators': num_estimators, 'min_samples_leaf': min_samples_leaf, 'max_features':max_features}
+    # gridModel = GridSearchCV(forestModel, param_grid=gridValues, scoring='accuracy', cv=5)
+    # gridModel.fit(X_train, y_train)
+    # print('---> Best params after inner cross validation: ' + str(gridModel.best_params_))
+    # # Predicting the output
+    # y_pred = gridModel.predict(X_test)
+    # # Calculating metrics
+    # accuracy = accuracy_score(y_test, y_pred, )
+    # precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # # Plotting metrics
+    # # plot_grid_search(gridModel.cv_results_, max_depth, min_samples_leaf, 'Maximum Tree Depth', 'Minimum Samples at Leaves')
+    # # plot_cv_results(gridModel.cv_results_, 'n_estimators', 'min_samples_leaf')
 
     # # Calculating the importance for each feature
     importances = forestModel.feature_importances_
@@ -327,37 +382,73 @@ def randomForest(metaInputList, labelInputList, alreadySplit=False, X_train=None
     plt.bar(range(X_train.shape[1]), importances[indices], color="r", yerr=std[indices], align="center")
     plt.xticks(range(X_train.shape[1]), indices)
     plt.xlim([-1, X_train.shape[1]])
-    plt.ylabel('Importance (Entropy)')
+    plt.ylabel('Importance')
     plt.xlabel('Feature ID')
     plt.show()
 
     return accuracy, precision, recall
 
 
-# HYP: criterions(gini, etc)
 def decisionTree(metaInputList, labelInputList, alreadySplit=False, X_train=None, X_test=None, y_train=None, y_test=None):
 
     # Splitting test and training data
     if alreadySplit==False:
         X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage, stratify=labelInputList)
-    # Defining the Decision tree
-    treeModel = DecisionTreeClassifier(criterion='gini')
-    # Fitting the training data
-    treeModel.fit(X_train, y_train)
-    # Predict the test data
-    y_predict = treeModel.predict(X_test)
-    accuracy = accuracy_score(y_test, y_predict)
-    precision = precision_score(y_test, y_predict, average='weighted', labels=np.unique(y_predict))
-    recall = recall_score(y_test, y_predict, average='weighted', labels=np.unique(y_predict))
+
+    # # Trying different hyperparams
+    # accuracies = []
+    # for max_feature in range(2,16):
+    #     treeModel = DecisionTreeClassifier(criterion='gini', max_features=max_feature)
+    #     treeModel.fit(X_train, y_train)
+    #     y_predict = treeModel.predict(X_test)
+    #     acc = accuracy_score(y_test, y_predict)
+    #     accuracies.append(acc)
+    # # Plot the error for all the values of K
+    # plt.figure(figsize=(12, 6))
+    # plt.plot(accuracies, color='red', linestyle='dashed', marker='o',
+    #          markerfacecolor='blue', markersize=10)
+    # plt.title('Minimum Samples Required for a Leaf Node')
+    # plt.xlabel('Number of Features')
+    # plt.ylabel('Accuracy')
+    # plt.show()
+
+    # # Defining the Decision tree
+    # treeModel = DecisionTreeClassifier(criterion='gini', max_depth=10, min_samples_split=5, min_samples_leaf=2)
+    # # Fitting the training data
+    # treeModel.fit(X_train, y_train)
+    # # Predict the test data
+    # y_predict = treeModel.predict(X_test)
+    # accuracy = accuracy_score(y_test, y_predict)
+    # precision = precision_score(y_test, y_predict, average='weighted', labels=np.unique(y_predict))
+    # recall = recall_score(y_test, y_predict, average='weighted', labels=np.unique(y_predict))
     # print("\nAccuracy with Decision Tree is " + str(accuracy))
     # print("\nPrecision with Decision Tree is " + str(precision))
     # print("\nRecall with Decision Tree is " + str(recall))
     # features = [i for i in range(1,len(X_train[-1])+1)]
-    # # Visualizing tree
-    # dot_data = tree.export_graphviz(treeModel, out_file=None, class_names=features)
-    # graph = graphviz.Source(dot_data)
-    # graph.render("./outputFiles/decisionTreeVisualization")
+    # # # Visualizing tree
+    # # dot_data = tree.export_graphviz(treeModel, out_file=None, class_names=features)
+    # # graph = graphviz.Source(dot_data)
+    # # graph.render("./outputFiles/decisionTreeVisualization")
 
+    # Grid Search
+    decisionTreeModel = DecisionTreeClassifier()
+    max_depth = [x for x in range(1, 20)]
+    min_samples_split = [2, 5, 10, 15]
+    min_samples_leaf = [2,3,4,5,6]
+    max_features = [2,4,6,8,10,12]
+    gridValues = {'criterion':['gini'], 'max_features':max_features, 'min_samples_split':min_samples_split,'min_samples_leaf':min_samples_leaf, 'max_depth': max_depth}
+    gridModel = GridSearchCV(decisionTreeModel, param_grid=gridValues, scoring='accuracy', cv=5)
+    gridModel.fit(X_train, y_train)
+    print('---> Best params after inner cross validation: ' + str(gridModel.best_params_))
+    # Predicting the output
+    y_pred = gridModel.predict(X_test)
+    # Calculating metrics
+    accuracy = accuracy_score(y_test, y_pred, )
+    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # Plotting metrics
+    # plot_grid_search(gridModel.cv_results_, max_depth, min_samples_leaf, 'Maximum Tree Depth', 'Minimum Samples at Leaves')
+    # plot_cv_results(gridModel.cv_results_, 'max_depth', 'max_features')
     # Returning the metrics as results
     return accuracy, precision, recall
 
@@ -374,7 +465,7 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     X_train = scaler.transform(X_train)
     X_test = scaler.transform(X_test)
 
-    ## LINEAR KERNEL ##
+    # ## LINEAR KERNEL ##
     # accuracies = []
     # precisions = []
     # recalls = []
@@ -399,7 +490,7 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     # plt.show()
 
     # #---------------------------##
-    # svmClassifier = svm.SVC(kernel='linear', C=5, gamma='auto')  # Linear Kernel
+    # svmClassifier = svm.SVC(kernel='linear', C=5)  # Linear Kernel
     # # Train the model using the training set
     # svmClassifier.fit(X_train, y_train)
     # # Predict the response for test dataset
@@ -416,9 +507,9 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     # accuracies = []
     # precisions = []
     # recalls = []
-    # for i in range(2, 15):
+    # for i in range(1, 15):
     #     # Create a new SVM Classifier
-    #     svmClassifier = svm.SVC(kernel='poly', degree=i, gamma='auto')  # Polynomial kernel for which we have to specify the degree
+    #     svmClassifier = svm.SVC(kernel='poly', degree=i, gamma='scale')  # Polynomial kernel for which we have to specify the degree
     #     # Train the model using the training set
     #     svmClassifier.fit(X_train, y_train)
     #     # Predict the response for test dataset
@@ -429,12 +520,14 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     #     recalls.append(recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
     #
     # # Plotting for the polynomial
-    # plt.plot(accuracies)
+    # xaxis = [x for x in range(1,15)]
+    # plt.plot(xaxis, accuracies)
     # plt.title('SVM w/ Polynomial Kernel degrees')
     # plt.ylabel('Accuracy')
     # plt.xlabel('Polynomial Degree')
     # plt.legend(['Accuracy'], loc='upper right')
     # plt.show()
+    # print(accuracies)
 
     # Try different C values for the polynomial kernel
     # accuracies = []
@@ -457,50 +550,12 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     # plt.plot(accuracies)
     # plt.title('SVM w/ Polynomial C values')
     # plt.ylabel('Accuracy')
-    # plt.xlabel('Polynomial Degree')
-    # plt.legend(['Accuracy'], loc='upper right')
-    # plt.show()
-
-    ##---------------------------##
-    svmClassifier = svm.SVC(kernel='poly', C=30, degree=2, gamma='auto')  # Linear Kernel
-    # Train the model using the training set
-    svmClassifier.fit(X_train, y_train)
-    # Predict the response for test dataset
-    y_pred = svmClassifier.predict(X_test)
-    # Calculating accuracy by comparing actual test labels and predicted labels
-    accuracy = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    return accuracy, precision, recall
-    ##---------------------------##
-
-
-    # GAUSSIAN KERNEL ##
-    # accuracies = []
-    # precisions = []
-    # recalls = []
-    # # Trying different values of Gamma parameter
-    # for i in range(1, 50):
-    #     svmClassifier = svm.SVC(kernel='rbf', C=i, gamma='auto')                 # Gaussian Kernel
-    #     # Train the model using the training set
-    #     svmClassifier.fit(X_train, y_train)
-    #     # Predict the response for test dataset
-    #     y_pred = svmClassifier.predict(X_test)
-    #     # Calculating accuracy by comparing actual test labels and predicted labels
-    #     accuracies.append(accuracy_score(y_test, y_pred))
-    #     precisions.append(precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
-    #     recalls.append(recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
-    #
-    # # Plotting for the polynomial
-    # plt.plot(accuracies)
-    # plt.title('SVM w/ Gaussian C values')
-    # plt.ylabel('Accuracy')
     # plt.xlabel('C value')
     # plt.legend(['Accuracy'], loc='upper right')
     # plt.show()
-
+    #
     # ##---------------------------##
-    # svmClassifier = svm.SVC(kernel='rbf', C=4, gamma='auto')  # Linear Kernel
+    # svmClassifier = svm.SVC(kernel='poly', C=30, degree=2, gamma='scale')  # Linear Kernel
     # # Train the model using the training set
     # svmClassifier.fit(X_train, y_train)
     # # Predict the response for test dataset
@@ -513,6 +568,65 @@ def supportVectorMachine(metaInputList, labelInputList, alreadySplit=False, X_tr
     # ##---------------------------##
 
 
+    # # RBF KERNEL ##
+    # accuracies = []
+    # precisions = []
+    # recalls = []
+    # # Trying different values of Gamma parameter
+    # for i in range(1, 100):
+    #     svmClassifier = svm.SVC(kernel='rbf', C=8, gamma='scale')                 # Gaussian Kernel
+    #     # Train the model using the training set
+    #     svmClassifier.fit(X_train, y_train)
+    #     # Predict the response for test dataset
+    #     y_pred = svmClassifier.predict(X_test)
+    #     # Calculating accuracy by comparing actual test labels and predicted labels
+    #     accuracies.append(accuracy_score(y_test, y_pred))
+    #     precisions.append(precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
+    #     recalls.append(recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
+    #
+    # # Plotting for the polynomial
+    # plt.plot(accuracies)
+    # plt.title('SVM w/ RBF gamma values')
+    # plt.ylabel('Accuracy')
+    # plt.xlabel('gamma')
+    # plt.legend(['Accuracy'], loc='upper right')
+    # plt.show()
+
+    # ##---------------------------##
+    # svmClassifier = svm.SVC(kernel='rbf', C=4, gamma='scale')  # Linear Kernel
+    # # Train the model using the training set
+    # svmClassifier.fit(X_train, y_train)
+    # # Predict the response for test dataset
+    # y_pred = svmClassifier.predict(X_test)
+    # # Calculating accuracy by comparing actual test labels and predicted labels
+    # accuracy = accuracy_score(y_test, y_pred)
+    # precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # return accuracy, precision, recall
+    # ##---------------------------##
+
+    # Grid Search
+    svmModel = svm.SVC()
+    C =  np.logspace(-2, 2, 13)
+    gamma = np.logspace(-7, 2, 16)
+    degree = [2,3,4,5,6]
+    kernel = ['linear', 'poly', 'rbf']
+    gridValues = {'gamma': gamma, 'degree':degree, 'kernel':['poly'], 'C':C, 'kernel':kernel}
+    gridModel = GridSearchCV(svmModel, param_grid=gridValues, scoring='accuracy', cv=5)
+    gridModel.fit(X_train, y_train)
+    print('---> Best params after inner cross validation: ' + str(gridModel.best_params_))
+    # Predicting the output
+    y_pred = gridModel.predict(X_test)
+    # Calculating metrics
+    accuracy = accuracy_score(y_test, y_pred, )
+    precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # Plotting metrics
+    # plot_grid_search(gridModel.cv_results_, C, kernel, 'C Value', 'kernel')
+    plot_cv_results(gridModel.cv_results_, 'gamma', 'degree')
+    return accuracy, precision, recall
+
+
 
 
 # Multinomial Naive Bayes
@@ -523,7 +637,7 @@ def naiveBayes(metaInputList, labelInputList, alreadySplit=False, X_train=None, 
         X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage, stratify=labelInputList)
 
     # Create a Gaussian Classifier
-    nbModel = GaussianNB()
+    nbModel = MultinomialNB()
     # Train the model using the training sets
     nbModel.fit(X_train, y_train)
     # Predict Output
@@ -545,8 +659,9 @@ def logisticRegression(metaInputList, labelInputList, alreadySplit=False, X_trai
     # Splitting test and training data
     if alreadySplit==False:
         X_train, X_test, y_train, y_test = train_test_split(metaInputList, labelInputList, test_size=validationPercentage, stratify=labelInputList)
+
     # Instantiating the logistic Regression model
-    logisticRegr = LogisticRegression(solver='newton-cg', multi_class='ovr')
+    logisticRegr = LogisticRegression(solver='newton-cg', multi_class='ovr', C=1)
     # Fitting the model
     logisticRegr.fit(X_train, y_train)
     # Predicting the output
@@ -555,15 +670,43 @@ def logisticRegression(metaInputList, labelInputList, alreadySplit=False, X_trai
     accuracy = accuracy_score(y_test, y_pred, )
     precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
     recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    confMatrixList.append(confusion_matrix(y_test, y_pred, labels=[x for x in range(1,9)]))
+
+    # # Grid Search
+    # logisticRegr = LogisticRegression()
+    # C = np.logspace(-4, 4, 20)
+    # gridValues = {'C': C, 'multi_class': ['ovr'], 'solver': ['newton-cg','liblinear','lbfgs']}
+    # gridModel = GridSearchCV(logisticRegr, param_grid=gridValues, scoring='accuracy', cv=5)
+    # gridModel.fit(X_train, y_train)
+    # print('---> Best params after inner cross validation: ' + str(gridModel.best_params_))
+    # # Predicting the output
+    # y_pred = gridModel.predict(X_test)
+    # # Calculating metrics
+    # accuracy = accuracy_score(y_test, y_pred, )
+    # precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
+    # classMetricsCalculator(confusion_matrix(y_test, y_pred, labels=[x for x in range(1,9)]))
+    # Plotting metrics
+    # plot_grid_search(gridModel.cv_results_, C, kernel, 'C Value', 'kernel')
+    # plot_cv_results(gridModel.cv_results_, 'C', 'solver')
+
+    # # Appending per-class metrics
+    # precClass, recClass, fscoreClass, support = score(y_test, y_pred)
+    # classPrecisionList.append(precClass)
+    # classRecallList.append(recClass)
+    # classF1List.append(fscoreClass)
+
     # print("Logistic Regression accuracy is: " + str(accuracy))
     # print("Logistic Regression precision is: " + str(precision))
     # print("Logistic Regression recall is: " + str(recall))
 
     # # Try different C values for the Regression
+    # C_param_range = [0.001, 0.01, 0.1, 1, 10, 100]
+    # trainingAccuracies = []
     # accuracies = []
     # precisions = []
     # recalls = []
-    # for i in range(2, 25):
+    # for i in C_param_range:
     #     # Instantiating the logistic Regression model
     #     logisticRegr = LogisticRegression(solver='newton-cg', multi_class='ovr', C=i)
     #     # Fitting the model
@@ -572,15 +715,18 @@ def logisticRegression(metaInputList, labelInputList, alreadySplit=False, X_trai
     #     y_pred = logisticRegr.predict(X_test)
     #     # Calculating accuracy by comparing actual test labels and predicted labels
     #     accuracies.append(accuracy_score(y_test, y_pred))
+    #     trainingAccuracies.append(accuracy_score(y_train, logisticRegr.predict(X_train)))
     #     precisions.append(precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
     #     recalls.append(recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred)))
     #
     # # Plotting for the polynomial
-    # plt.plot(accuracies)
+    # plt.plot(C_param_range, accuracies)
+    # plt.plot(C_param_range, trainingAccuracies)
+    # plt.xscale('log')
     # plt.title('Logistic Regression C values')
     # plt.ylabel('Accuracy')
     # plt.xlabel('C Value')
-    # plt.legend(['Accuracy'], loc='upper right')
+    # plt.legend(['Test Accuracy', 'Training Accuracy'], loc='upper left')
     # plt.show()
 
     # # Saving model to file
@@ -595,14 +741,17 @@ def logisticRegression(metaInputList, labelInputList, alreadySplit=False, X_trai
     # accuracy = accuracy_score(y_test, y_pred, )
     # precision = precision_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
     # recall = recall_score(y_test, y_pred, average='weighted', labels=np.unique(y_pred))
-    # print("CIAAO : " + str(accuracy))
     # input()
 
     # Returning the metrics as results
-    print("Final Accuracy " + str(accuracy))
-    return accuracy, precision, recall, y_pred
+    # print("Final Accuracy " + str(accuracy))
+    return accuracy, precision, recall
 
 def classMetricsCalculator(confusionMat):
+
+    # Each cell of those arrays corresponds to a class
+    fullIterationPrecision = []
+    fullIterationRecall = []
     # Getting the confusion Matrix
     print("\n")
     print(confusionMat)
@@ -615,9 +764,34 @@ def classMetricsCalculator(confusionMat):
         falseNeg = sumRow(confusionMat, cat) - confusionMat[cat,cat]
         # Calculating actual metrics
         precision = truePos/(truePos+falsePos)
+        if np.math.isnan(precision):
+            precision = -1
         recall = truePos/(truePos+falseNeg)
+        if np.math.isnan(recall):
+            recall = -1
+        # Saving metrics
+        fullIterationPrecision.append(precision)
+        fullIterationRecall.append(recall)
         print("CLASS " + str(cat) + " has Prec " + str(precision) + " and Recall " + str(recall))
+    # Adding the just calculated metrics to the global array containing metrics for all iterations
+    classPrecisionList.append(fullIterationPrecision)
+    classRecallList.append(fullIterationRecall)
 
+
+def calculateMetricsFromConfMat(confusionMat):
+    # Calculating metrics for each class separately
+    truePos = 0
+    falsePos = 0
+    falseNeg = 0
+    for cat in range(0, len(confusionMat)):
+        # Retrieving TP, FP, FN
+        truePos = truePos + confusionMat[cat, cat]
+        falsePos = falsePos + sumColumn(confusionMat, cat) - confusionMat[cat, cat]
+        falseNeg = falseNeg + sumRow(confusionMat, cat) - confusionMat[cat, cat]
+    # Calculating actual metrics
+    precision = truePos / (truePos + falsePos)
+    recall = truePos / (truePos + falseNeg)
+    print("+++ CONF MAT: Prec " + str(precision) + " and Recall " + str(recall))
 
 def sumColumn(m, column):
     total = 0
@@ -651,23 +825,23 @@ def Nfold(N, metaInputList, labelInputList, MLfunction):
     for train_index, test_index in kfold.split(metaInputList):
         # Increasing iteration counter
         counter = counter + 1
-        print("KFOLD ::: We are in iteration " + str(counter))
+        print("KFOLD ::: We are in iteration " + str(counter) + ":")
         # Actually splitting the training and test data
         X_train, X_test = metaInputList[train_index], metaInputList[test_index]
         y_train, y_test = labelInputList[train_index], labelInputList[test_index]
         # Executing the classification function
-        acc, prec, recall, y_pred = MLfunction(metaInputList, labelInputList, alreadySplit=True, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
+        acc, prec, recall = MLfunction(metaInputList, labelInputList, alreadySplit=True, X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test)
         # Calculating the confusion matrix
-        confusionMat = confusion_matrix(y_test, y_pred, labels=[1,2,3,4,5,6,7,8])
-        if totConfMatrix is None:
-            totConfMatrix = confusionMat
-        else:
-            totConfMatrix = sumMatrices(totConfMatrix, confusionMat)
+        # confusionMat = confusion_matrix(y_test, y_pred, labels=[1,2,3,4,5,6,7,8])
+        # if totConfMatrix is None:
+        #     totConfMatrix = confusionMat
+        # else:
+        #     totConfMatrix = sumMatrices(totConfMatrix, confusionMat)
         # Calculating general metrics
         totAcc = totAcc + acc
         totPrec = totPrec + prec
         totRecall = totRecall + recall
-        print("Run " + str(counter) + " with accuracy " + str(acc) +  " with Prec " + str(prec) + " with recall " + str(recall))
+        print("Run " + str(counter) + " with accuracy " + str(acc) +  " with Prec " + str(prec) + " with recall " + str(recall) + "\n")
     # Measuring
     kfoldAcc = totAcc / N
     kfoldPrec = totPrec / N
@@ -675,6 +849,27 @@ def Nfold(N, metaInputList, labelInputList, MLfunction):
     print("\n[N-FOLD] Avg accuracy is " + str(kfoldAcc))
     print("[N-FOLD] Avg precision is " + str(kfoldPrec))
     print("[N-FOLD]Avg recall is " + str(kfoldRecall))
+    # # Calculating per class metrics
+    # finalClassPrecisions = [0, 0, 0, 0, 0, 0, 0, 0]
+    # finalClassRecalls = [0, 0, 0, 0, 0, 0, 0, 0]
+    # for cla in range(0, 8):
+    #     dividerPrec = N
+    #     dividerRec = N
+    #     for iteration in range(0,N):
+    #         if classPrecisionList[iteration][cla] == -1:
+    #             dividerPrec = dividerPrec - 1
+    #         else:
+    #             finalClassPrecisions[cla] = finalClassPrecisions[cla] + classPrecisionList[iteration][cla]
+    #         if classRecallList[iteration][cla] == -1:
+    #             dividerRec = dividerRec - 1
+    #         else:
+    #             finalClassRecalls[cla] = finalClassRecalls[cla] + classRecallList[iteration][cla]
+    #     # Calculating average
+    #     finalClassPrecisions[cla] = finalClassPrecisions[cla]/dividerPrec
+    #     finalClassRecalls[cla] = finalClassRecalls[cla]/dividerRec
+    # print("\n\nPer Class Metrics:\n")
+    # for cla in range(0,8):
+    #     print("CLASS " + str(cla) + " - Precision: " + str(finalClassPrecisions[cla]) + " Recall: " + str(finalClassRecalls[cla]))
 
     return kfoldAcc, kfoldPrec, kfoldRecall, totConfMatrix
 
@@ -707,6 +902,16 @@ def leaveOneOut(metaInputList, labelInputList, MLfunction):
     print("\n[LOO] Avg accuracy is " + str(kfoldAcc))
     print("[LOO] Avg precision is " + str(kfoldPrec))
     print("[LOO] Avg recall is " + str(kfoldRecall))
+
+    # Final Metrics
+    totMat = None
+    for mat in confMatrixList:
+        if totMat is None:
+            totMat = mat
+        else:
+            totMat = totMat + mat
+    calculateMetricsFromConfMat(totMat)
+
 
     return kfoldAcc, kfoldPrec, kfoldRecall
 
@@ -845,6 +1050,56 @@ def measureWithScreenRemodeling(labeledList):
     print("Final Average Precision: " + str(np.average(finalPrecList)))
     print("Final Average Recall: " + str(np.average(finalRecallList)))
 
+
+def plot_grid_search(cv_results, grid_param_1, grid_param_2, name_param_1, name_param_2):
+    # Get Test Scores Mean and std for each grid search
+    scores_mean = cv_results['mean_test_score']
+    scores_mean = np.array(scores_mean).reshape(len(grid_param_2),len(grid_param_1))
+    print(scores_mean)
+    scores_sd = cv_results['std_test_score']
+    scores_sd = np.array(scores_sd).reshape(len(grid_param_2),len(grid_param_1))
+
+    # Plot Grid search scores
+    _, ax = plt.subplots(1,1)
+
+    # Param1 is the X-axis, Param 2 is represented as a different curve (color line)
+    for idx, val in enumerate(grid_param_2):
+        ax.plot(grid_param_1, scores_mean[idx,:], '-o', label= name_param_2 + ': ' + str(val))
+
+    ax.set_title("Grid Search Scores")
+    ax.set_xlabel(name_param_1)
+    ax.set_ylabel('CV Average Accuracy')
+    ax.legend(loc="best")
+    ax.grid('on')
+    plt.show()
+
+def plot_cv_results(cv_results, param_x, param_z, metric='mean_test_score'):
+    """
+    cv_results - cv_results_ attribute of a GridSearchCV instance (or similar)
+    param_x - name of grid search parameter to plot on x axis
+    param_z - name of grid search parameter to plot by line color
+    """
+    cv_results = pd.DataFrame(cv_results)
+    col_x = 'param_' + param_x
+    col_z = 'param_' + param_z
+    fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+    sns.pointplot(x=col_x, y=metric, hue=col_z, data=cv_results, ci=99, n_boot=64, ax=ax)
+    ax.set_title("Grid Search Scores")
+    ax.set_xlabel(param_x)
+
+    # get the current labels
+    labels = [item.get_text() for item in ax.get_xticklabels()]
+    # Beat them into submission and set them back again
+    ax.set_xticklabels([str(round(float(label), 7)) for label in labels])
+
+    ax.set_ylabel('CV Average Accuracy')
+    ax.legend(loc="best", title=param_z)
+    ax.grid('on')
+    plt.setp(ax.get_xticklabels(), rotation=30, horizontalalignment='right')
+    plt.show()
+    return fig
+
+
 ##############################################################
 
 # LOADING ACTIVITY DATASET LIST
@@ -968,14 +1223,14 @@ filehandler.close()
 # bestAcc = 0
 # bestPrec = 0
 # bestRecall = 0
-# for i in range(0,30):
+# for i in range(0,20):
 #
 #     maxRuns = 20
 #     totAcc = 0
 #     totPrec = 0
 #     totRecall = 0
 #     for run in range(1,maxRuns+1):
-#         acc, prec, recall = supportVectorMachine(metaInputList, labelIntegerList)
+#         acc, prec, recall = logisticRegression(metaInputList, labelIntegerList)
 #         totAcc = totAcc + acc
 #         totPrec = totPrec + prec
 #         totRecall = totRecall + recall
@@ -1006,7 +1261,7 @@ bestAcc = 0
 bestPrec = 0
 bestRecall = 0
 totConfMatrix = None
-for i in range(0,1):
+for i in range(0,5):
     acc, prec, rec, finalConfusionMatrix = Nfold(11, metaInputList, labelIntegerList, logisticRegression)
     if totConfMatrix is None:
         totConfMatrix = finalConfusionMatrix
@@ -1020,15 +1275,15 @@ for i in range(0,1):
     if rec > bestRecall:
         bestRecall = rec
 print("\n\n---> Best 11-FOLD values found are ACC: " + str(bestAcc) + " || PREC: " + str(bestPrec) + " || REC: " + str(bestRecall))
-# Calculating per-class metrics
-classMetricsCalculator(totConfMatrix)
-printConfusionMatrix(totConfMatrix)
+# # Calculating per-class metrics
+# classMetricsCalculator(totConfMatrix)
+# printConfusionMatrix(totConfMatrix)
 
 # # Leave One Out
 # bestAcc = 0
 # bestPrec = 0
 # bestRecall = 0
-# for i in range(0,11):
+# for i in range(0,1):
 #     acc, prec, rec = leaveOneOut(metaInputList, labelIntegerList, logisticRegression)
 #     # Finding Max
 #     if acc > bestAcc:
@@ -1038,3 +1293,6 @@ printConfusionMatrix(totConfMatrix)
 #     if rec > bestRecall:
 #         bestRecall = rec
 # print("\n\n---> Best LOO values found are ACC: " + str(bestAcc) + " || PREC: " + str(bestPrec) + " || REC: " + str(bestRecall))
+
+
+# Managing per-class metrics

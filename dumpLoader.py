@@ -1,5 +1,5 @@
-import pickle
 import os
+import pickle
 import numpy as np
 import keras
 from keras.models import Sequential
@@ -16,7 +16,9 @@ import keras_metrics
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report
-
+from keras.wrappers.scikit_learn import KerasClassifier
+from sklearn.model_selection import GridSearchCV
+from sklearn import preprocessing
 
 
 
@@ -28,23 +30,25 @@ def swish(x):
     return K.sigmoid(x) * x
 
 # Setting up a Keras model of: 4 Conv and Pool + Flat + 5 Dense
-def setupNNmodel(inputShape, outputShape):
+def setupNNmodel(activation=swish, learn_rate=0.00001):
     model = Sequential()
     # Input - Layer
-    model.add(Dense(inputShape, activation="relu", input_shape=(inputShape,)))
+    model.add(Dense(finalArrayLen, activation="relu", input_shape=(finalArrayLen,)))
     # Hidden - Layers
-    model.add(Dropout(0.5, noise_shape=None, seed=None))
-    model.add(Dense(1000, activation="sigmoid"))
     # model.add(Dropout(0.5, noise_shape=None, seed=None))
+    model.add(Dense(1000, activation=activation))
+    model.add(Dropout(0.5, noise_shape=None, seed=None))
+    model.add(Dense(500, activation="sigmoid"))
     # model.add(Dense(100, activation="sigmoid"))
     # Output- Layer
-    model.add(Dense(outputShape, activation="softmax"))
+    model.add(Dense(numClasses, activation="softmax"))
     model.summary()
 
     model.compile(
         loss='kullback_leibler_divergence',
-        optimizer=optimizers.Adam(lr=0.001),
+        optimizer=optimizers.Adam(lr=learn_rate),
         metrics=["accuracy",keras_metrics.precision(), keras_metrics.recall()]
+        # metrics=["accuracy"]
     )
 
     return model
@@ -59,7 +63,7 @@ def crossValidation(X, Y, nFold):
     for i in range(0, len(Y)):
         Y_1D.append(np.argmax(Y[i][:]))
     # Setting up the K-Fold splitting
-    seed = 7
+    seed = 3
     np.random.seed(seed)
     kfold = StratifiedKFold(n_splits=nFold, shuffle=True, random_state=seed)
     # Resetting the weights of the model
@@ -74,13 +78,30 @@ def crossValidation(X, Y, nFold):
         print("\n[[[[WE ARE IN ITERATION: " + str(iteration+1) + " ]]]]\n")
         iteration = iteration + 1
 
+        # # Grid Search
+        # model = KerasClassifier(build_fn=setupNNmodel, epochs=100, batch_size=10,)
+        # # define the grid search parameters
+        # activation=['tanh','sigmoid']
+        # learn_rate = [0.001, 0.01, 0.1, 0.2, 0.3]
+        # param_grid = dict(activation=activation, learn_rate=learn_rate)
+        # grid = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=-1)
+        # grid_result = grid.fit(X[train], Y[train])
+        # # summarize results
+        # print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
+        # means = grid_result.cv_results_['mean_test_score']
+        # stds = grid_result.cv_results_['std_test_score']
+        # params = grid_result.cv_results_['params']
+        # for mean, stdev, param in zip(means, stds, params):
+        #     print("Mean Acc: %f (std: %f) with: %r" % (mean, stdev, param))
+
         # Training the model
-        results = NNmodel.fit(
+        history = NNmodel.fit(
             X[train], Y[train],
             verbose=1,
-            epochs=30,
+            epochs=50,
             batch_size=128,
             shuffle=True,
+            validation_split=0.1
         )
         # evaluate the model
         scores = NNmodel.evaluate(X[test], Y[test], verbose=0)
@@ -90,6 +111,22 @@ def crossValidation(X, Y, nFold):
         accList.append(scores[1] * 100)
         precList.append(scores[2] * 100)
         recList.append(scores[3] * 100)
+        # Plotting Training and Validation curves for Accuracy
+        plt.plot(history.history['acc'])
+        plt.plot(history.history['val_acc'])
+        plt.title('Model Accuracy')
+        plt.ylabel('Accuracy')
+        plt.xlabel('Epoch')
+        plt.legend(['train', 'validation'], loc='upper left')
+        plt.show()
+        # Plotting Training and Validation curves for Loss
+        plt.plot(history.history['loss'])
+        plt.plot(history.history['val_loss'])
+        plt.title('Model Loss')
+        plt.ylabel('Loss')
+        plt.xlabel('Epoch')
+        plt.legend(['train', 'validation'], loc='upper left')
+        plt.show()
         # Setting back the weights
         NNmodel.set_weights(initial_weights)
 
@@ -210,7 +247,7 @@ for app in tmpArray:
 
 # Set up NN model
 finalArrayLen = len(X[-1])
-NNmodel = setupNNmodel(finalArrayLen, numClasses)
+NNmodel = setupNNmodel()
 
 # Converting to numpy arrays
 X = np.array(X)
@@ -218,6 +255,11 @@ Y = np.array(Y)
 # val_X = np.array(val_X)
 # val_Y = np.array(val_Y)
 
+# Normalizing Input
+std_scale = preprocessing.StandardScaler(with_mean=True, with_std=True).fit(X)
+X = std_scale.transform(X)
+# minMax_scale = preprocessing.MinMaxScaler(feature_range=(-1,1)).fit(X)
+# X = minMax_scale.transform(X)
 # K-FOLD
 crossValidation(X, Y, 10)
 
