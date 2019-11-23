@@ -98,7 +98,7 @@ def crossValidation(X, Y, nFold):
         history = NNmodel.fit(
             X[train], Y[train],
             verbose=1,
-            epochs=50,
+            epochs=70,
             batch_size=128,
             shuffle=True,
             validation_split=0.1
